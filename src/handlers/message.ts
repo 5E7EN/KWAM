@@ -24,6 +24,37 @@ export async function handleMessage({ client, msg, metadata }: MessageHandlerPar
             // Send message
             client.sendMessage(metadata.remoteJid, { text: replyBuilder });
         }
+
+        // Kick specified user
+        if (metadata.text.startsWith('!kick')) {
+            // TODO: Ensure bot is an admin before continuing
+
+            const target = metadata.text.split(' ')[1];
+
+            if (!target) {
+                client.sendMessage(metadata.remoteJid, { text: 'Please specify the target!' });
+                return;
+            }
+
+            const targetId = target + '@s.whatsapp.net';
+            const membersData = await client.groupFetchAllParticipating();
+
+            // Ensure target is in the group
+            if (
+                !membersData[metadata.remoteJid].participants.find(
+                    (participant) => participant.id === targetId
+                )
+            ) {
+                client.sendMessage(metadata.remoteJid, { text: 'Target user not found in group!' });
+                return;
+            }
+
+            // Kick the target
+            await client.groupParticipantsUpdate(metadata.remoteJid, [targetId], 'remove');
+
+            // Send message
+            client.sendMessage(metadata.remoteJid, { text: 'User has been kicked!' });
+        }
     }
 
     console.log(`Received message: ${metadata.text}`);
