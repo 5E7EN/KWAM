@@ -1,6 +1,6 @@
 # KWAM - Kosher WhatsApp Moderator
 
-An Advanced Moderation Bot for WhatsApp.  
+An advanced moderation bot for WhatsApp.  
 Getting rid of spammers, one group at a time.
 
 # Usage
