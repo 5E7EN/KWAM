@@ -2,13 +2,15 @@
 
 ## Joining Groups
 
-Group admin wants bot? Have them send invite link. Then, join (or request to join) and verify that requester is a "superadmin" in that group.
-If yes, stay and activate.  
-If not, leave immediately.
+Group admin wants bot? Have them send a command (e.g. `!join`), guide them to temporarily add a certain unique keyword to the group's description and ensure the group membership is public (they probably don't need the bot if it's on "Approval Required to Join" mode), and then have them send the group's invite link.
+
+Join and verify that requester is a "superadmin" in that group.  
+If yes, stay and activate, and notify requester of success.  
+If not, leave immediately and notify requester of failure.
 
 Group conditions:
 
--   Must be popular (at least 20 members) - (check before joining, if able)
+-   Must be popular (at least 20 members) - (check before joining, if able, otherwise, join and check)
 
 ## Message Moderation
 
@@ -25,6 +27,12 @@ If action was actually taken as a result of the flagging (flag threshold reached
 Additionally, the superadmin of each group the user has been banned in should be notified upon the user's ban - with the reasons given for flagging that triggered it communicated to him.
 
 Any time a user joins a group, the bot should check if the user is globally blacklisted. If so, the user should be removed from the group and the superadmin notified of the reasons, as listed above.
+
+#### Preventing Abuse
+
+-   An admin can only flag 3 users per day globally
+-   An admin can only flag a specific user once
+-   Apply 1 minute cooldown between flagging commands
 
 ## Automatially Determining Suspicious Messages
 
@@ -43,6 +51,13 @@ If flagged 3 times by system, only 1 manual flag by an admin is needed to blackl
 4.  Weird links (shortened, etc) & #3
 5.  Long messages with newlines & #4
 
+### Whitelisting
+
+-   Allow for whitelisting of certain users globally (restricted to superadmins, e.g. `!globalwhitelist 18008008800`)
+-   Allow for whitelisting of certain users on a per-group basis (admins or superadmins, e.g. `!whitelist 18008008800`)
+-   Allow for whitelisting of certain message content/group links (if message contains, skip processing)
+
 ## Additional Information
 
 -   The bot is designed to operate as discreetly as possible. Feedback should be given to admins in a way that doesn't reveal the bot's presence (via DMs).
+-   Bot account should use a WhatsApp Business account as a display of legitimacy.
