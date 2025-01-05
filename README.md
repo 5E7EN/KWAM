@@ -8,4 +8,5 @@ Getting rid of spammers, one group at a time.
 -   `yarn install`
 -   `yarn start`
 
-Scan QR code in console with WhatsApp to log in.
+Scan QR code in console with WhatsApp to log in.  
+More information coming soon!
