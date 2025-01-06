@@ -126,7 +126,7 @@ class CommandHandler {
             /********************** Cooldowns *************************/
             if (bot.Modules.cooldown(commandData.name, msgMeta, { mode: 'check' })) {
                 return bot.Logger.verbose(
-                    `[Command Executer | Cooldown] Cooldown enforced - User: ${msgMeta.user.number} | Group: #${msgMeta.group.name} | Command: ${commandData.name}.`
+                    `[Command Executer | Cooldown] Cooldown enforced - User: ${msgMeta.user.number} | Group: ${msgMeta.group.name} | Command: ${commandData.name}`
                 );
             }
 
