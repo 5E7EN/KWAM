@@ -1,55 +1,54 @@
-import makeWASocket, { DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
-import { Boom } from '@hapi/boom';
+import * as Modules from './modules';
+import * as Controllers from './controllers';
+import Commands from './services/commands';
+import { WinstonLogger } from './services/logger';
 
-import { messagesHandler } from './handlers/messages';
+import WhatsApp from './clients/whatsapp';
 
-// Configure auth storage method
-const connectToDatabase = async () => {
-    return await useMultiFileAuthState('auth_info_baileys');
-};
+// TODO: Move this elsewhere
+declare global {
+    namespace bot {
+        let Store: {
+            cmds: Map<string, any>;
+            cmdAliases: Map<string, any>;
+            cooldowns: any;
+        };
 
-// Connect to WhatsApp Web
-async function connectToWhatsApp() {
-    const { state, saveCreds } = await connectToDatabase();
-
-    // Create a new socket
-    const client = makeWASocket({
-        printQRInTerminal: true,
-        auth: state
-    });
-
-    // Handle connection updates
-    client.ev.on('connection.update', (update) => {
-        const { connection, lastDisconnect } = update;
-
-        if (connection === 'close') {
-            const shouldReconnect =
-                (lastDisconnect.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
-
-            console.log(
-                'Connection closed due to ',
-                lastDisconnect.error,
-                ', reconnecting ',
-                shouldReconnect
-            );
-
-            // Reconnect if not logged out
-            if (shouldReconnect) {
-                connectToWhatsApp();
-            }
-        } else if (connection === 'open') {
-            console.log('Opened connection');
-        }
-    });
-
-    // Handle credential updates
-    client.ev.on('creds.update', saveCreds);
-
-    // Handle incoming messages
-    client.ev.on('messages.upsert', (args) => {
-        messagesHandler({ client: client, ...args });
-    });
+        let Modules: any;
+        let Logger: any;
+        let Commands: any;
+        let Controllers: any;
+        let WhatsApp: any;
+    }
 }
 
-// Initiate the connection
-connectToWhatsApp();
+// Globals Initialization
+// TODO: Don't use globals like this, use dependency injection instead
+globalThis.bot = {} as typeof bot;
+
+bot.Store = {
+    cmds: new Map(),
+    cmdAliases: new Map(),
+    cooldowns: {}
+};
+
+// Load Services, Modules, Utils, and Preferences
+bot.Commands = Commands;
+bot.Controllers = Controllers;
+bot.Logger = new WinstonLogger().logger;
+bot.Modules = Modules;
+
+// Load Client
+bot.WhatsApp = WhatsApp;
+
+// Main Initialization Function
+(async () => {
+    try {
+        await bot.Commands.initialize();
+        await bot.WhatsApp.initialize();
+
+        bot.Logger.info('ALL SERVICES RUNNING!');
+    } catch (err) {
+        bot.Logger.error(`[Main] Error encountered during initialization: ${err + err?.stack}`);
+    }
+})();
