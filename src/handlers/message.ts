@@ -1,9 +1,20 @@
+import type { WAProto } from '@whiskeysockets/baileys';
+
 import MessageHandlerParams from './../types';
 
+// Create message store
+const messageStore: WAProto.IWebMessageInfo[] = [];
+
 export async function handleMessage({ client, msg, metadata }: MessageHandlerParams) {
+    console.log(`[${msg.key.id}] Received message: ${metadata.text}`);
+
+    // Add message to store
+    // TODO: Segregate messages on a per-group basis, with a max message buffer (cannot delete from over 2 days anyway)
+    messageStore.push(msg);
+
     if (metadata.isGroup && metadata.groupMetaData.groupName === 'Test Group KWAM') {
         if (metadata.text.startsWith('!ping')) {
-            client.sendMessage(metadata.remoteJid, { text: 'Pong!' });
+            client.sendMessage(msg.key.participant, { text: 'Pong!' });
         }
 
         if (metadata.text.startsWith('!getmembers')) {
@@ -55,68 +66,106 @@ export async function handleMessage({ client, msg, metadata }: MessageHandlerPar
             // Send message
             client.sendMessage(metadata.remoteJid, { text: 'User has been kicked!' });
         }
+
+        // Delete specific message
+        if (metadata.text.startsWith('!deletemessage')) {
+            const targetMessageId = metadata.text.split(' ')[1];
+
+            if (!targetMessageId) {
+                client.sendMessage(metadata.remoteJid, { text: 'Please specify the target!' });
+                return;
+            }
+
+            // Get target message from store
+            const targetMessage = messageStore.find(
+                (message) => message.key.id === targetMessageId
+            );
+
+            if (!targetMessage || !targetMessage.key) {
+                client.sendMessage(metadata.remoteJid, {
+                    text: 'Target message not found or its key is missing!'
+                });
+                return;
+            }
+
+            // Delete message by ID
+            client.sendMessage(metadata.remoteJid, { delete: targetMessage.key });
+
+            // Remove message from store
+            messageStore.splice(
+                messageStore.findIndex((message) => message.key.id === targetMessageId),
+                1
+            );
+        }
+
+        // Delete x amount of past (recorded) messages from a specific user
+        if (metadata.text.startsWith('!deletemessage')) {
+            const [, targetUser, messageCount] = metadata.text.split(' ');
+
+            if (!targetUser) {
+                client.sendMessage(metadata.remoteJid, { text: 'Please specify the target user!' });
+                return;
+            }
+
+            if (!messageCount) {
+                client.sendMessage(metadata.remoteJid, {
+                    text: 'Please specify the amount of messages to delete from history!'
+                });
+                return;
+            }
+
+            // Get target messages from store, with the newest messages first
+            const targetMessages = messageStore
+                .filter((message) => message.key.participant.split('@')[0] === targetUser)
+                .sort((a, b) => {
+                    return Number(b.messageTimestamp) - Number(a.messageTimestamp);
+                });
+
+            if (!targetMessages.length) {
+                client.sendMessage(metadata.remoteJid, {
+                    text: 'No messages found from the target user in history!'
+                });
+                return;
+            }
+
+            // Delete messages
+            targetMessages.slice(0, parseInt(messageCount)).forEach((message) => {
+                console.log(`Deleting message: ${message.key.id}`);
+                client.sendMessage(metadata.remoteJid, { delete: message.key });
+            });
+        }
+
+        // Nuke x amount of past (recorded) messages containing a specific keyword
+        // TODO: Add time range filter (e.g. last 1m, 1h, 1d, etc.)
+        if (metadata.text.startsWith('!nuke')) {
+            const phrase = metadata.text.split(' ').slice(1).join(' ');
+
+            if (!phrase) {
+                client.sendMessage(metadata.remoteJid, {
+                    text: 'Please specify a banphrase to nuke!'
+                });
+                return;
+            }
+
+            // Get target messages from store, with the newest messages first
+            const targetMessages = messageStore
+                .filter((message) => message.message.extendedTextMessage.text.includes(phrase))
+                .sort((a, b) => {
+                    return Number(b.messageTimestamp) - Number(a.messageTimestamp);
+                });
+
+            if (!targetMessages.length) {
+                client.sendMessage(metadata.remoteJid, {
+                    text: 'No messages found from the target user in history!'
+                });
+                return;
+            }
+
+            // Delete messages
+            targetMessages.forEach((message) => {
+                console.log(`Deleting message: ${message.key.id}`);
+                client.sendMessage(metadata.remoteJid, { delete: message.key });
+            });
+        }
     }
-
-    console.log(`Received message: ${metadata.text}`);
-
-    // const modelInfo = Util.getModelByPrefix(metadata.text);
-
-    // if (!modelInfo) {
-    //     if (ENV.Debug) {
-    //         console.log("[Debug] Model '" + modelInfo + "' not found");
-    //     }
-    //     return;
-    // }
-
-    // let model = modelTable[modelInfo.name];
-    // let prefix = modelInfo.name !== 'Custom' ? modelInfo.meta.prefix : '';
-
-    // if (modelInfo.name === 'Custom') {
-    //     if (!modelInfo.customMeta) return;
-    //     const customModels = model as Array<CustomAIModel>;
-    //     const potentialCustomModel = customModels.find((model) => model.modelName === modelInfo.customMeta?.meta.modelName);
-
-    //     model = potentialCustomModel;
-    //     prefix = modelInfo.customMeta.meta.prefix;
-    // }
-
-    // if (!model) {
-    //     if (ENV.Debug) {
-    //         console.log("[Debug] Model '" + JSON.stringify(modelInfo, null, 2) + "' is disabled or not found");
-    //     }
-    //     return;
-    // }
-
-    // const prompt: string = metadata.text.split(' ').slice(1).join(' ');
-    // const messageResponse = await client.sendMessage(metadata.remoteJid, { text: ENV.Processing }, { quoted: msg });
-
-    // model.sendMessage(
-    //     {
-    //         sender: metadata.sender,
-    //         prompt: prompt,
-    //         metadata: metadata,
-    //         prefix: prefix
-    //     },
-    //     async (res: any, err: any) => {
-    //         if (err) {
-    //             client.sendMessage(metadata.remoteJid, {
-    //                 text: "Sorry, i can't handle your request right now.",
-    //                 edit: messageResponse?.key
-    //             });
-    //             console.error(err);
-    //             return;
-    //         }
-
-    //         if (res.image) {
-    //             // delete the old message
-    //             if (messageResponse?.key) {
-    //                 client.sendMessage(metadata.remoteJid, { delete: messageResponse.key });
-    //             }
-    //             client.sendMessage(metadata.remoteJid, res, { quoted: msg });
-    //         } else {
-    //             res.edit = messageResponse?.key;
-    //             client.sendMessage(metadata.remoteJid, res);
-    //         }
-    //     }
-    // );
 }
