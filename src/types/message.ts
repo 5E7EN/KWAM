@@ -2,26 +2,25 @@ export interface IMsgMeta {
     msgType: string;
     command: string;
     user: {
-        name: string; // senderName
-        number: string; // message.key.participant.split('@')[0]
-        jid: string; // message.key.participant
-        // permissions: number[];
+        name: string;
+        number: string;
+        jid: string;
         replyPrivateMessage: (text: string) => Promise<void>;
         sendPrivateMessage: (text: string) => Promise<void>;
     };
     message: {
-        id: string; // message.key.id
-        text: string; // text
-        trimmed: string; // text.trim()
-        rawKey: any; // message.key
-        timestamp: number | Long.Long; // message.messageTimestamp
+        id: string;
+        text: string;
+        trimmed: string;
+        rawKey: any;
+        timestamp: number | Long.Long;
     };
     isGroup: boolean;
     group: {
         isLocked: boolean;
-        name: string; // groupMetadata.groupName
-        jid: string; // remoteJid,
-        enabled: boolean; // Eventually this should be pulled from DB
+        name: string;
+        jid: string;
+        enabled: boolean;
         sendMessage: (text: string) => Promise<void>;
         replyMessage: (text: string) => Promise<void>;
     };

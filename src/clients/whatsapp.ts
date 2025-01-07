@@ -15,13 +15,11 @@ class WhatsAppClient {
     // Keep track of when the client connected so that old messages aren't processed (as they will flood in after bot inactivity)
     private timeOfConnect: number;
 
-    constructor() {}
-
     /**
      * @description Constructs the chat client, configures global message ratebucket, and connects to Twitch IRC servers.
      * @returns A `Promise` which resolves when the client has established a connection.
      */
-    initialize = async (): Promise<void> => {
+    public initialize = async (): Promise<void> => {
         let initialEventFired = false;
         const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
@@ -55,7 +53,7 @@ class WhatsAppClient {
     /**
      * @description Called when the connection state of the client changes.
      */
-    onConnectionUpdate = (update: Partial<ConnectionState>) => {
+    private onConnectionUpdate = (update: Partial<ConnectionState>) => {
         const { connection, lastDisconnect } = update;
 
         switch (connection) {
@@ -95,7 +93,7 @@ class WhatsAppClient {
     /**
      * @description Called when a message is received on WhatsApp.
      */
-    onMessage = async ({
+    private onMessage = async ({
         client,
         messages,
         type
@@ -106,46 +104,26 @@ class WhatsAppClient {
     }) => {
         Promise.all(
             messages.map(async (msg) => {
-                // Ignore messages that were sent before the bot connected
+                // Ignore messages that were sent before the bot came online
                 if (Number(msg.messageTimestamp) * 1000 < this.timeOfConnect) return;
 
-                const { fromMe, remoteJid } = msg.key;
+                // Ignore if no remoteJid somehow
+                const remoteJid = msg.key.remoteJid;
                 if (!remoteJid) return;
 
-                // Check if no message
-                const message = msg.message;
+                // Ignore if no message somehow
                 if (!msg.message) return;
 
-                const {
-                    extendedTextMessage,
-                    imageMessage,
-                    videoMessage,
-                    audioMessage,
-                    documentMessage,
-                    contactMessage,
-                    locationMessage,
-                    conversation
-                } = message;
-
-                let msgType: TMsgType = 'unknown';
-
-                if (conversation) msgType = 'text';
-                else if (extendedTextMessage) msgType = 'text';
-                else if (imageMessage) msgType = 'image';
-                else if (videoMessage) msgType = 'video';
-                else if (audioMessage) msgType = 'audio';
-                else if (documentMessage) msgType = 'document';
-                else if (contactMessage) msgType = 'contact';
-                else if (locationMessage) msgType = 'location';
+                // Get message type and text
+                const messageType = this.getMessageType(msg);
+                const messageText = this.getMessageText(msg);
 
                 // Ignore if message type is unknown
                 // TODO: Delete, debugging only
-                console.log('MsgTYPE:', msgType);
-                console.log('---', msgType);
-                if (msgType === 'unknown') return;
+                console.log('MsgTYPE:', messageType);
+                console.log('---', messageType);
+                if (messageType === 'unknown') return;
 
-                // Extract message text
-                const messageText = extendedTextMessage?.text || conversation || '';
                 // Determine if message is a command
                 const isCommand = messageText.startsWith(WhatsAppConfig.PREFIX);
                 const args = messageText.slice(WhatsAppConfig.PREFIX.length).trim().split(/ +/g);
@@ -170,7 +148,7 @@ class WhatsAppClient {
                 // TODO: This msgMeta object should really only contain data directly related to the message
                 // TODO: Create a separate object for internal data/methods associated with the message/its origin
                 const msgMeta: IMsgMeta = {
-                    msgType,
+                    msgType: messageType,
                     command: isCommand ? args.shift().toLowerCase() : null,
                     args: isCommand ? args : null,
                     user: {
@@ -226,7 +204,7 @@ class WhatsAppClient {
      * @param message Message string.
      * @returns A `Promise` which resolves when the message has been delivered successfully.
      */
-    sendMsg = async (msgMeta: IMsgMeta, jid: string, message: string) => {
+    private sendMsg = async (msgMeta: IMsgMeta, jid: string, message: string) => {
         try {
             await this.chatClient.sendMessage(jid, { text: message });
         } catch (err) {
@@ -234,6 +212,58 @@ class WhatsAppClient {
                 `[WhatsApp | Message Sender] Error sending message: ${err + err?.stack}`
             );
         }
+    };
+
+    private getMessageType = (msg: WAMessage) => {
+        const {
+            extendedTextMessage,
+            imageMessage,
+            videoMessage,
+            audioMessage,
+            documentMessage,
+            contactMessage,
+            locationMessage,
+            conversation
+        } = msg.message;
+
+        let msgType: TMsgType = 'unknown';
+
+        if (conversation) msgType = 'text';
+        else if (extendedTextMessage) msgType = 'text';
+        else if (imageMessage) msgType = 'image';
+        else if (videoMessage) msgType = 'video';
+        else if (audioMessage) msgType = 'audio';
+        else if (documentMessage) msgType = 'document';
+        else if (contactMessage) msgType = 'contact';
+        else if (locationMessage) msgType = 'location';
+
+        return msgType;
+    };
+
+    private getMessageText = (msg: WAMessage): string | null => {
+        const {
+            extendedTextMessage,
+            imageMessage,
+            videoMessage,
+            audioMessage,
+            documentMessage,
+            contactMessage,
+            locationMessage,
+            conversation
+        } = msg.message;
+
+        let msgText = '';
+
+        if (conversation) msgText = conversation;
+        else if (extendedTextMessage) msgText = extendedTextMessage.text;
+        else if (imageMessage) msgText = imageMessage.caption;
+        else if (videoMessage) msgText = videoMessage.caption;
+        else if (audioMessage) msgText = null; // Audio clip messages don't come with any text
+        else if (documentMessage) msgText = documentMessage.caption;
+        else if (contactMessage) msgText = contactMessage.vcard;
+        else if (locationMessage) msgText = locationMessage.name;
+
+        return msgText;
     };
 }
 
