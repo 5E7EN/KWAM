@@ -4,25 +4,31 @@ import { whatsapp as WhatsAppConfig } from '../constants';
 
 class MessageRouter {
     handleMessage = async (msgMeta: IMsgMeta) => {
-        const { message, user, group } = msgMeta;
+        const { message, user, isGroup, group } = msgMeta;
 
-        console.log(msgMeta);
+        // console.log(msgMeta);
 
         // Ignore if group is locked (only admins can send messages)
-        if (msgMeta.group.isGroup && msgMeta.group.isLocked) return;
+        if (msgMeta.isGroup && msgMeta.group.isLocked) return;
 
-        // Update Message Cache
-        // msgMeta.channel.cache.addMessage(user.login, message.text, group.name);
-
-        let author = `@${user.number}`;
+        // Add message to group cache
+        const contextId = isGroup ? msgMeta.group.jid : msgMeta.user.jid;
+        const groupCache = bot.Store.messageCache.get(contextId);
+        if (groupCache) {
+            groupCache.push(msgMeta);
+        } else {
+            bot.Store.messageCache.set(contextId, [msgMeta]);
+        }
 
         // Print Message
-        bot.Logger.silly(`[#${group.name}] ${author}: ${message.text}`);
+        bot.Logger.debug(`[${isGroup ? group.name : user.number}] ${user.number}: ${message.text}`);
 
-        // Ignore Self
-        // if (user.login === bot.Constants.twitch.USERNAME.toLowerCase()) return;
+        // Ignore messages from self
+        if (user.number === WhatsAppConfig.OPERATING_NUMBER) return;
 
-        if (!group.enabled) return;
+        // Ignore messages from disabled groups
+        // TODO: Is this really necessary, because I can just leave the group
+        if (isGroup && group.enabled === false) return;
 
         // Check if message starts with prefix; then execute command
         if (message.trimmed.startsWith(WhatsAppConfig.PREFIX)) {

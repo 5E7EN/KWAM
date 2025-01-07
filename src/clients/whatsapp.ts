@@ -1,4 +1,5 @@
 import makeWASocket, {
+    ConnectionState,
     DisconnectReason,
     MessageUpsertType,
     useMultiFileAuthState,
@@ -7,10 +8,12 @@ import makeWASocket, {
 import { Boom } from '@hapi/boom';
 
 import { whatsapp as WhatsAppConfig } from '../constants';
-import { IMsgMeta } from '../types/message';
+import { IMsgMeta, TMsgType } from '../types/message';
 
 class WhatsAppClient {
     public chatClient: ReturnType<typeof makeWASocket>;
+    // Keep track of when the client connected so that old messages aren't processed (as they will flood in after bot inactivity)
+    private timeOfConnect: number;
 
     constructor() {}
 
@@ -18,7 +21,8 @@ class WhatsAppClient {
      * @description Constructs the chat client, configures global message ratebucket, and connects to Twitch IRC servers.
      * @returns A `Promise` which resolves when the client has established a connection.
      */
-    initialize = async () => {
+    initialize = async (): Promise<void> => {
+        let initialEventFired = false;
         const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
         this.chatClient = makeWASocket({
@@ -31,47 +35,65 @@ class WhatsAppClient {
         this.chatClient.ev.on('creds.update', saveCreds);
         this.chatClient.ev.on('messages.upsert', this.onMessage);
 
-        // this.chatClient.on('connect', this.onConnect);
-        // this.chatClient.on('ready', this.onReady);
-        // this.chatClient.on('reconnect', this.onReconnect);
-        // this.chatClient.on('error', this.onError);
-        // this.chatClient.on('close', this.onClose);
-        // this.chatClient.on('JOIN', this.onJoin);
-        // this.chatClient.on('PART', this.onPart);
-        // this.chatClient.on('PRIVMSG', this.onMessage);
-        // this.chatClient.on('WHISPER', this.onWhisper);
+        // Return a promise that resolves when the client is ready
+        return new Promise((resolve, reject) => {
+            this.chatClient.ev.on('connection.update', (update) => {
+                // Ensure callbacks are only called once (since there's no way to de-register from this listener after it fired already, which would be ideal)
+                if (initialEventFired) return;
 
-        // TODO: Return a promise that resolves when the client is ready
+                if (update.connection === 'open') {
+                    initialEventFired = true;
+                    resolve();
+                } else if (update.connection === 'close') {
+                    initialEventFired = true;
+                    reject(update.lastDisconnect.error);
+                }
+            });
+        });
     };
 
     /**
      * @description Called when the connection state of the client changes.
      */
-    onConnectionUpdate = (update) => {
+    onConnectionUpdate = (update: Partial<ConnectionState>) => {
         const { connection, lastDisconnect } = update;
 
-        if (connection === 'close') {
-            const shouldReconnect =
-                (lastDisconnect.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+        switch (connection) {
+            case 'connecting':
+                bot.Logger.info('[WhatsApp] Connecting...');
+                break;
+            case 'open':
+                bot.Logger.info('[WhatsApp] Connected to Web.');
+                // Set the time of connect so that old messages aren't processed
+                this.timeOfConnect = Date.now();
+                break;
+            case 'close':
+                const shouldReconnect =
+                    (lastDisconnect.error as Boom)?.output?.statusCode !==
+                    DisconnectReason.loggedOut;
 
-            bot.Logger.error(
-                'Connection closed due to ',
-                lastDisconnect.error,
-                ', reconnecting ',
-                shouldReconnect
-            );
+                bot.Logger.error(
+                    `[${
+                        shouldReconnect ? 'RECONNECTING' : 'NOT_RECONNECTING'
+                    }] Connection closed: ${lastDisconnect.error.message} - ${
+                        lastDisconnect.error.stack
+                    }`
+                );
 
-            // Reconnect if not logged out
-            // if (shouldReconnect) {
-            //     connectToWhatsApp();
-            // }
-        } else if (connection === 'open') {
-            bot.Logger.info('[WhatsApp] Connected to Web.');
+                // Reconnect if not logged out
+                if (shouldReconnect) {
+                    this.initialize();
+                }
+
+                break;
+
+            default:
+                break;
         }
     };
 
     /**
-     * @description Called when a message is received from IRC.
+     * @description Called when a message is received on WhatsApp.
      */
     onMessage = async ({
         client,
@@ -84,6 +106,9 @@ class WhatsAppClient {
     }) => {
         Promise.all(
             messages.map(async (msg) => {
+                // Ignore messages that were sent before the bot connected
+                if (Number(msg.messageTimestamp) * 1000 < this.timeOfConnect) return;
+
                 const { fromMe, remoteJid } = msg.key;
                 if (!remoteJid) return;
 
@@ -102,16 +127,7 @@ class WhatsAppClient {
                     conversation
                 } = message;
 
-                let msgType:
-                    | 'unknown'
-                    | 'text'
-                    | 'extendedText'
-                    | 'image'
-                    | 'video'
-                    | 'document'
-                    | 'contact'
-                    | 'location'
-                    | 'audio' = 'unknown';
+                let msgType: TMsgType = 'unknown';
 
                 if (conversation) msgType = 'text';
                 else if (extendedTextMessage) msgType = 'text';
@@ -128,20 +144,45 @@ class WhatsAppClient {
                 console.log('---', msgType);
                 if (msgType === 'unknown') return;
 
-                // Message Properties
+                // Extract message text
                 const messageText = extendedTextMessage?.text || conversation || '';
+                // Determine if message is a command
                 const isCommand = messageText.startsWith(WhatsAppConfig.PREFIX);
                 const args = messageText.slice(WhatsAppConfig.PREFIX.length).trim().split(/ +/g);
 
-                // Message Metadata
+                // Fetch group metadata, if applicable
+                const isGroup = remoteJid.endsWith('@g.us');
+                let groupMetadata = null;
+                if (isGroup) {
+                    try {
+                        groupMetadata = await this.chatClient.groupMetadata(remoteJid);
+                    } catch (err) {
+                        bot.Logger.error(
+                            `[WhatsApp] Failed to fetch group metadata: ${err.message}`
+                        );
+                    }
+                }
+
+                // Determine sender JID
+                const fromUserJid = isGroup ? msg.key.participant : msg.key.remoteJid;
+
+                // Construct message metadata object
+                // TODO: This msgMeta object should really only contain data directly related to the message
+                // TODO: Create a separate object for internal data/methods associated with the message/its origin
                 const msgMeta: IMsgMeta = {
                     msgType,
                     command: isCommand ? args.shift().toLowerCase() : null,
                     args: isCommand ? args : null,
                     user: {
                         name: msg.pushName,
-                        number: msg.key.participant.split('@')[0],
-                        jid: msg.key.participant
+                        number: fromUserJid.split('@')[0],
+                        jid: fromUserJid,
+                        sendPrivateMessage: async (message) => {
+                            await this.sendMsg(msgMeta, msgMeta.user.jid, `${message}`);
+                        },
+                        replyPrivateMessage: async (message) => {
+                            // TODO: Implement
+                        }
                     },
                     message: {
                         id: msg.key.id,
@@ -150,43 +191,27 @@ class WhatsAppClient {
                         timestamp: msg.messageTimestamp,
                         rawKey: msg.key
                     },
-                    group: {
-                        isGroup: false,
-                        // TODO: Should this be the default?
-                        isLocked: false,
-                        name: '', // Will be filled below, if message is from a group
-                        jid: remoteJid,
-                        // TODO: Eventually this should be pulled from DB
-                        enabled: true
-                    },
+                    isGroup,
+                    group: isGroup
+                        ? {
+                              isLocked: groupMetadata.restrict,
+                              name: groupMetadata.subject,
+                              jid: remoteJid,
+                              enabled: true, // TODO: Eventually this should be pulled from DB
+                              sendMessage: async (message) => {
+                                  await this.sendMsg(msgMeta, remoteJid, `${message}`);
+                              },
+                              replyMessage: async (message) => {
+                                  // TODO: Implement
+                              }
+                          }
+                        : null,
 
-                    sendGroupMessage: async (message) => {
-                        // TODO: Ensure it's actually a group before sending
-                        await this.sendMsg(msgMeta, remoteJid, `${message}`);
-                    },
-                    replyGroupMessage: async (message) => {
-                        // TODO: Implement
-                    },
-                    sendPrivateMessage: async (message) => {
-                        await this.sendMsg(msgMeta, msgMeta.user.jid, `${message}`);
-                    },
-                    replyPrivateMessage: async (message) => {
-                        // TODO: Implement
-                    },
                     replyUsage: async (usageString) => {
                         // TODO: Implement
+                        // If message originated from a group, reply in the group, otherwise reply privately
                     }
                 };
-
-                // Fill in group name if message is from a group
-                if (remoteJid.endsWith('@g.us')) {
-                    msgMeta.group.isGroup = true;
-
-                    const groupMetadata = await this.chatClient.groupMetadata(remoteJid);
-
-                    msgMeta.group.name = groupMetadata.subject;
-                    msgMeta.group.isLocked = groupMetadata.restrict;
-                }
 
                 // Forward Message to Router
                 bot.Controllers.messageRouter.handleMessage(msgMeta);

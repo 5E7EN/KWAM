@@ -5,6 +5,8 @@ import { WinstonLogger } from './services/logger';
 
 import WhatsApp from './clients/whatsapp';
 
+import type { IMsgMeta } from './types/message';
+
 // TODO: Move this elsewhere
 declare global {
     namespace bot {
@@ -12,6 +14,7 @@ declare global {
             cmds: Map<string, any>;
             cmdAliases: Map<string, any>;
             cooldowns: any;
+            messageCache: Map<string, [IMsgMeta]>;
         };
 
         let Modules: any;
@@ -29,7 +32,8 @@ globalThis.bot = {} as typeof bot;
 bot.Store = {
     cmds: new Map(),
     cmdAliases: new Map(),
-    cooldowns: {}
+    cooldowns: {},
+    messageCache: new Map()
 };
 
 // Load Services, Modules, Utils, and Preferences

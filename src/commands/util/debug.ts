@@ -1,7 +1,7 @@
 import { IMsgMeta } from '../../types/message';
 
 const run = async (d: IMsgMeta): Promise<void> => {
-    d.sendGroupMessage('Hello world!');
+    d.group.sendMessage('Hello world!');
 };
 
 export default {
