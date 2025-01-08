@@ -1,18 +1,46 @@
+import { injectable, inject, postConstruct } from 'inversify';
 import { readdir } from 'fs/promises';
 import { performance } from 'perf_hooks';
 import path from 'path';
 
+import { CooldownModule } from '../modules/cooldown';
+
+import type { BaseLogger } from '../utils/logger';
 import type { IMsgMeta } from '../types/message';
 import type { ICommandData } from '../types/command';
 
-class CommandHandler {
-    async initialize(purge: boolean): Promise<void> {
-        if (purge) {
-            bot.Store.cmds.clear();
-            bot.Store.cmdAliases.clear();
+import { TYPES } from '../constants';
+
+@injectable()
+export class CommandsModule {
+    private _logger: BaseLogger;
+    private _cooldownModule: CooldownModule;
+    private readonly _commands = new Map<string, ICommandData>();
+    private readonly _aliases = new Map<string, string>();
+
+    public constructor(
+        @inject(TYPES.BaseLogger) logger: BaseLogger,
+        @inject(TYPES.CooldownModule) cooldownModule: CooldownModule
+    ) {
+        // TODO: Figure out how these can be injected instead of needing to instantiate them here manually
+        this._logger = logger;
+        this._cooldownModule = cooldownModule;
+    }
+
+    // This method will be automatically called after dependencies are resolved
+    @postConstruct()
+    public async init(): Promise<void> {
+        await this.loadCommands();
+    }
+
+    // TODO: Instead of these kind of hacky commands, use classes (since this is typescript and can't add files on the go anyway)
+    async loadCommands(purgeExisting?: boolean): Promise<void> {
+        if (purgeExisting) {
+            this._commands.clear();
+            this._aliases.clear();
         }
 
-        bot.Logger.verbose('[Command Manager] Initializing commands...');
+        this._logger.verbose('Initializing commands...');
 
         const isDev = process.env.NODE_ENV !== 'production';
         const commandDir = isDev ? './src/commands' : './dist/commands';
@@ -34,32 +62,33 @@ class CommandHandler {
                     // Import the command
                     const pull: ICommandData = require(commandPath).default;
 
-                    if (pull.name) {
-                        bot.Store.cmds.set(pull.name, pull);
-                    }
-
-                    if (pull.aliases && Array.isArray(pull.aliases)) {
-                        pull.aliases.forEach((alias) => bot.Store.cmdAliases.set(alias, pull.name));
-                    }
-                } catch (err) {
-                    bot.Logger.error(`[Command Manager] Failed to load command ${file}: ${err}`);
+                    this.addCommand(pull);
+                } catch (error) {
+                    this._logger.error(`Failed to load command ${file}: ${error + error?.stack}`);
                 }
             }
         }
 
-        bot.Logger.verbose(`[Command Manager] Registered ${bot.Store.cmds.size} commands.`);
+        this._logger.verbose(`Registered ${this._commands.size} commands.`);
     }
 
-    async execute(msgMeta: IMsgMeta): Promise<void> {
-        let commandData: ICommandData | undefined = bot.Store.cmds.get(msgMeta.command);
-
-        if (!commandData) {
-            commandData = bot.Store.cmds.get(bot.Store.cmdAliases.get(msgMeta.command));
+    private addCommand(command: ICommandData): void {
+        if (command.name) {
+            this._commands.set(command.name, command);
         }
+        if (command.aliases) {
+            command.aliases.forEach((alias) => this._aliases.set(alias, command.name));
+        }
+    }
 
-        if (commandData) {
-            if (commandData.enabled === false) return;
+    private getCommand(name: string): ICommandData | undefined {
+        return this._commands.get(name) ?? this._commands.get(this._aliases.get(name)!);
+    }
 
+    public async executeCommand(msgMeta: IMsgMeta): Promise<void> {
+        const commandData = this.getCommand(msgMeta.command);
+
+        if (commandData && commandData.enabled !== false) {
             // if (
             //     (commandData.whisperOnly && msgMeta.group.name) ||
             //     (!commandData.whisperOnly && !msgMeta.group.name)
@@ -119,15 +148,20 @@ class CommandHandler {
             // )
             //     return;
             // if (!commandData.accessLevel)
-            //     return bot.Logger.warn(
+            //     return this._logger.warn(
             //         `[Command Executer | Permissions] Unable to determine access level of command: ${commandData.name}.`
             //     );
 
             /********************** Cooldowns *************************/
-            if (bot.Modules.cooldown(commandData.name, msgMeta, { mode: 'check' })) {
-                return bot.Logger.verbose(
-                    `[Command Executer | Cooldown] Cooldown enforced - User: ${msgMeta.user.number} | Group: ${msgMeta.group.name} | Command: ${commandData.name}`
+            // Check if any cooldown is active
+            const cooldowns = this._cooldownModule.checkAny(commandData.name, msgMeta);
+            const activeCooldown = Object.values(cooldowns).find((cd) => cd?.isOnCooldown);
+            if (activeCooldown) {
+                const { type, remainingTimeMs } = activeCooldown!;
+                this._logger.verbose(
+                    `Cooldown enforced - Type: ${type} | Remaining: ${remainingTimeMs}ms | User: ${msgMeta.user.number} | Group: ${msgMeta.group.name} | Command: ${commandData.name}`
                 );
+                return;
             }
 
             // if (
@@ -137,11 +171,14 @@ class CommandHandler {
             //     ) &&
             //     !commandData.whisperOnly
             // ) {
-            bot.Modules.cooldown(commandData.name, msgMeta, {
-                mode: 'add',
-                type: commandData.cooldown?.type || '',
-                length: (commandData.cooldown?.length || 0) * 1000
-            });
+            if (commandData.cooldown) {
+                this._cooldownModule.add(
+                    msgMeta,
+                    commandData.cooldown.type,
+                    (commandData.cooldown.length || 1) * 1000,
+                    commandData.name
+                );
+            }
             // }
 
             /************************ Usage ***************************/
@@ -157,7 +194,7 @@ class CommandHandler {
 
             /********************** Execution *************************/
             const execStart = performance.now();
-            const commandResult = await commandData.run(msgMeta);
+            const commandResult = await commandData.run({ msgMeta });
             const execTotal = Math.round(performance.now() - execStart);
 
             /**************** Post Execution & Logging ****************/
@@ -192,5 +229,3 @@ class CommandHandler {
     //     await bot.Database.pool.query(query, insert);
     // }
 }
-
-export default new CommandHandler();

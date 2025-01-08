@@ -1,58 +1,32 @@
-import * as Modules from './modules';
-import * as Controllers from './controllers';
-import Commands from './services/commands';
-import { WinstonLogger } from './services/logger';
+import 'reflect-metadata';
+import { Container } from 'inversify';
 
-import WhatsApp from './clients/whatsapp';
+import { bindings } from './config/ioc';
+import { WhatsappClient } from './clients/whatsapp';
 
-import type { IMsgMeta } from './types/message';
+import { WinstonLogger } from './utils/logger';
 
-// TODO: Move this elsewhere
-declare global {
-    namespace bot {
-        let Store: {
-            cmds: Map<string, any>;
-            cmdAliases: Map<string, any>;
-            cooldowns: any;
-            messageCache: Map<string, [IMsgMeta]>;
-        };
+import { TYPES } from './constants';
 
-        let Modules: any;
-        let Logger: any;
-        let Commands: any;
-        let Controllers: any;
-        let WhatsApp: any;
-    }
-}
-
-// Globals Initialization
-// TODO: Don't use globals like this, use dependency injection instead
-globalThis.bot = {} as typeof bot;
-
-bot.Store = {
-    cmds: new Map(),
-    cmdAliases: new Map(),
-    cooldowns: {},
-    messageCache: new Map()
-};
-
-// Load Services, Modules, Utils, and Preferences
-bot.Commands = Commands;
-bot.Controllers = Controllers;
-bot.Logger = new WinstonLogger().logger;
-bot.Modules = Modules;
-
-// Load Client
-bot.WhatsApp = WhatsApp;
-
-// Main Initialization Function
 (async () => {
-    try {
-        await bot.Commands.initialize();
-        await bot.WhatsApp.initialize();
+    // Create logger for this context
+    const logger = new WinstonLogger('Main').logger;
 
-        bot.Logger.info('ALL SERVICES RUNNING!');
+    try {
+        // Create a new container for dependency injection and load bindings
+        const container = new Container();
+        await container.loadAsync(bindings);
+
+        // Connect to whatsapp
+        const whatsappClient = await container.getAsync<WhatsappClient>(TYPES.WhatsappClient);
+
+        // TODO: Replace with a proper logger instance somehow
+        logger.info(
+            `ALL SERVICES RUNNING! | Logged in as: ${
+                whatsappClient.chatClient.user.id.split(':')[0]
+            } | GLHF!`
+        );
     } catch (err) {
-        bot.Logger.error(`[Main] Error encountered during initialization: ${err + err?.stack}`);
+        logger.error(`Error encountered during initialization: ${err + err?.stack}`);
     }
 })();

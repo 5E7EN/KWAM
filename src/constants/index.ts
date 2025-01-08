@@ -21,3 +21,14 @@ export const chatCache = {
 export const misc = {
     BOT_OWNER: { name: '5E7EN', number: process.env.OWNER_NUMBER }
 };
+
+export const TYPES = {
+    WhatsappClient: Symbol.for('WhatsappClient'),
+
+    BaseLogger: Symbol.for('BaseLogger'),
+
+    CooldownModule: Symbol.for('CooldownModule'),
+    CommandsModule: Symbol.for('CommandsModule'),
+
+    MessageController: Symbol('MessageController')
+};

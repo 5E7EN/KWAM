@@ -17,7 +17,9 @@
         "@whiskeysockets/baileys": "^6.7.9",
         "chalk": "4.1.2",
         "dotenv": "^16.4.7",
+        "inversify": "^6.2.1",
         "qrcode-terminal": "^0.12.0",
+        "reflect-metadata": "^0.2.2",
         "winston": "^3.17.0"
     },
     "devDependencies": {

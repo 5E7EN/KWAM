@@ -1,13 +1,35 @@
-import { IMsgMeta } from '../types/message';
+import { injectable, inject } from 'inversify';
 
 import { whatsapp as WhatsAppConfig } from '../constants';
+import type { IMsgMeta } from '../types/message';
+import type { CommandsModule } from '../modules/commands';
+import type { BaseLogger } from '../utils/logger';
 
-class MessageRouter {
-    handleMessage = async (msgMeta: IMsgMeta) => {
+import { TYPES } from '../constants';
+import type createWASocket from '@whiskeysockets/baileys';
+
+@injectable()
+export class MessageController {
+    private _logger: BaseLogger;
+    private _commandsModule: CommandsModule;
+
+    public constructor(
+        @inject(TYPES.BaseLogger) logger: BaseLogger,
+        @inject(TYPES.CommandsModule) commandsModule: CommandsModule
+    ) {
+        this._logger = logger;
+        this._commandsModule = commandsModule;
+    }
+
+    public async handleMessage(
+        client: ReturnType<typeof createWASocket>,
+        msgMeta: IMsgMeta
+    ): Promise<void> {
         const { message, user, isGroup, group } = msgMeta;
 
         // Ignore messages from self
-        if (user.number === WhatsAppConfig.OPERATING_NUMBER) return;
+        // TODO: Debug, uncomment this
+        // if (user.number === WhatsAppConfig.OPERATING_NUMBER) return;
 
         // Ignore messages from disabled groups
         // TODO: Is this really necessary, because I can just leave the group
@@ -19,22 +41,25 @@ class MessageRouter {
 
         // Add message to group cache
         // TODO: Refactor this implementation to have it accessible inside an object passed to command `run`s (via msgMeta?)
-        const contextId = isGroup ? msgMeta.group.jid : msgMeta.user.jid;
-        const groupCache = bot.Store.messageCache.get(contextId);
-        if (groupCache) {
-            groupCache.push(msgMeta);
-        } else {
-            bot.Store.messageCache.set(contextId, [msgMeta]);
-        }
+        // const contextId = isGroup ? msgMeta.group.jid : msgMeta.user.jid;
+        // const groupCache = bot.Store.messageCache.get(contextId);
+        // if (groupCache) {
+        //     groupCache.push(msgMeta);
+        // } else {
+        //     bot.Store.messageCache.set(contextId, [msgMeta]);
+        // }
+
+        // Mark message as read
+        client.readMessages([message.rawKey]);
 
         // Print Message
-        bot.Logger.debug(`[${isGroup ? group.name : user.number}] ${user.number}: ${message.text}`);
+        this._logger.debug(
+            `[${isGroup ? group.name : user.number}] ${user.number}: ${message.text}`
+        );
 
         // Check if message starts with prefix; then execute command
         if (message.trimmed.startsWith(WhatsAppConfig.PREFIX)) {
-            await bot.Commands.execute(msgMeta);
+            await this._commandsModule.executeCommand(msgMeta);
         }
-    };
+    }
 }
-
-export default new MessageRouter();

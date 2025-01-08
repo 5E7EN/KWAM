@@ -23,7 +23,7 @@ export type BaseLogger = Logger;
 export class WinstonLogger {
     private readonly _contextTag: string;
     private readonly _logLevel: ELogLevel;
-    private readonly _logger: Logger;
+    private readonly _logger: BaseLogger;
 
     constructor(contextTag?: string, logLevel?: ELogLevel) {
         let envLevel: ELogLevel;
@@ -77,7 +77,7 @@ export class WinstonLogger {
                             // Add the log level in uppercase and pad with spaces
                             chalk[color](info.level.toUpperCase().padEnd(7)),
                             // Add the context tag (if present) and pad with spaces
-                            contextTag ? chalk.yellow(`[${contextTag}]`.padEnd(16)) + ' -' : '',
+                            contextTag ? chalk.yellow(`[${contextTag}]`.padEnd(20)) + ' -' : '',
                             // Remove the context tag and add log message
                             isMessageString ? info.message.replace(/^\[.*?]( )/, '') : '',
                             // Stringify message object (if present)

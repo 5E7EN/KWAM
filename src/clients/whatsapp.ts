@@ -1,6 +1,8 @@
-import makeWASocket, {
+import { injectable, inject, postConstruct } from 'inversify';
+import createWASocket, {
     ConnectionState,
     DisconnectReason,
+    GroupMetadata,
     MessageUpsertType,
     useMultiFileAuthState,
     WAMessage
@@ -10,10 +12,32 @@ import { Boom } from '@hapi/boom';
 import { whatsapp as WhatsAppConfig } from '../constants';
 import { IMsgMeta, TMsgType } from '../types/message';
 
-class WhatsAppClient {
-    public chatClient: ReturnType<typeof makeWASocket>;
+import type { MessageController } from '../controllers/message-router';
+import type { BaseLogger } from '../utils/logger';
+
+import { TYPES } from '../constants';
+
+@injectable()
+export class WhatsappClient {
+    public chatClient: ReturnType<typeof createWASocket>;
     // Keep track of when the client connected so that old messages aren't processed (as they will flood in after bot inactivity)
     private timeOfConnect: number;
+    private readonly _logger: BaseLogger;
+    private readonly _messageController: MessageController;
+
+    public constructor(
+        @inject(TYPES.BaseLogger) logger: BaseLogger,
+        @inject(TYPES.MessageController) messageController: MessageController
+    ) {
+        this._logger = logger;
+        this._messageController = messageController;
+    }
+
+    // This method will be automatically called after dependencies are resolved
+    @postConstruct()
+    public async init(): Promise<void> {
+        await this.initialize();
+    }
 
     /**
      * @description Constructs the chat client, configures global message ratebucket, and connects to Twitch IRC servers.
@@ -23,7 +47,7 @@ class WhatsAppClient {
         let initialEventFired = false;
         const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
-        this.chatClient = makeWASocket({
+        this.chatClient = createWASocket({
             printQRInTerminal: true,
             auth: state
         });
@@ -58,10 +82,10 @@ class WhatsAppClient {
 
         switch (connection) {
             case 'connecting':
-                bot.Logger.info('[WhatsApp] Connecting...');
+                this._logger.info('Connecting...');
                 break;
             case 'open':
-                bot.Logger.info('[WhatsApp] Connected to Web.');
+                this._logger.info('Connected to Web.');
                 // Set the time of connect so that old messages aren't processed
                 this.timeOfConnect = Date.now();
                 break;
@@ -70,7 +94,7 @@ class WhatsAppClient {
                     (lastDisconnect.error as Boom)?.output?.statusCode !==
                     DisconnectReason.loggedOut;
 
-                bot.Logger.error(
+                this._logger.error(
                     `[${
                         shouldReconnect ? 'RECONNECTING' : 'NOT_RECONNECTING'
                     }] Connection closed: ${lastDisconnect.error.message} - ${
@@ -98,7 +122,7 @@ class WhatsAppClient {
         messages,
         type
     }: {
-        client: ReturnType<typeof makeWASocket>;
+        client: ReturnType<typeof createWASocket>;
         messages: WAMessage[];
         type: MessageUpsertType;
     }) => {
@@ -119,9 +143,6 @@ class WhatsAppClient {
                 const messageText = this.getMessageText(msg);
 
                 // Ignore if message type is unknown
-                // TODO: Delete, debugging only
-                console.log('MsgTYPE:', messageType);
-                console.log('---', messageType);
                 if (messageType === 'unknown') return;
 
                 // Determine if message is a command
@@ -130,14 +151,12 @@ class WhatsAppClient {
 
                 // Fetch group metadata, if applicable
                 const isGroup = remoteJid.endsWith('@g.us');
-                let groupMetadata = null;
+                let groupMetadata: GroupMetadata = null;
                 if (isGroup) {
                     try {
                         groupMetadata = await this.chatClient.groupMetadata(remoteJid);
                     } catch (err) {
-                        bot.Logger.error(
-                            `[WhatsApp] Failed to fetch group metadata: ${err.message}`
-                        );
+                        this._logger.error(`Failed to fetch group metadata: ${err.message}`);
                     }
                 }
 
@@ -172,7 +191,7 @@ class WhatsAppClient {
                     isGroup,
                     group: isGroup
                         ? {
-                              isLocked: groupMetadata.restrict,
+                              isLocked: groupMetadata.announce,
                               name: groupMetadata.subject,
                               jid: remoteJid,
                               enabled: true, // TODO: Eventually this should be pulled from DB
@@ -192,7 +211,7 @@ class WhatsAppClient {
                 };
 
                 // Forward Message to Router
-                bot.Controllers.messageRouter.handleMessage(msgMeta);
+                this._messageController.handleMessage(this.chatClient, msgMeta);
             })
         );
     };
@@ -208,7 +227,7 @@ class WhatsAppClient {
         try {
             await this.chatClient.sendMessage(jid, { text: message });
         } catch (err) {
-            bot.Logger.error(
+            this._logger.error(
                 `[WhatsApp | Message Sender] Error sending message: ${err + err?.stack}`
             );
         }
@@ -266,5 +285,3 @@ class WhatsAppClient {
         return msgText;
     };
 }
-
-export default new WhatsAppClient();

@@ -1,3 +1,5 @@
+import type { proto } from '@whiskeysockets/baileys';
+
 export interface IMsgMeta {
     msgType: string;
     command: string;
@@ -12,7 +14,7 @@ export interface IMsgMeta {
         id: string;
         text: string;
         trimmed: string;
-        rawKey: any;
+        rawKey: proto.IMessageKey;
         timestamp: number | Long.Long;
     };
     isGroup: boolean;
