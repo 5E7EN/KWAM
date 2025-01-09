@@ -3,7 +3,7 @@ import { Container } from 'inversify';
 
 import { bindings } from './inversify.config';
 import { WhatsappClient } from './clients/whatsapp';
-import { WinstonLogger } from './utils/logger';
+import { WinstonLogger } from './utilities/logger';
 import { TYPES } from './constants';
 
 (async () => {

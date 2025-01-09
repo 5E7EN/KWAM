@@ -7,7 +7,7 @@ import { MessageController } from './controllers/message-router';
 import { CooldownModule } from './modules/cooldown';
 import { CommandsModule } from './modules/commands';
 
-import { BaseLogger, WinstonLogger } from './utils/logger';
+import { BaseLogger, WinstonLogger } from './utilities/logger';
 
 import { TYPES } from './constants';
 
@@ -17,7 +17,7 @@ export const bindings = new AsyncContainerModule(async (bind: inversify.interfac
     bind<CooldownModule>(TYPES.CooldownModule).to(CooldownModule).inSingletonScope;
     bind<CommandsModule>(TYPES.CommandsModule).to(CommandsModule).inSingletonScope;
 
-    // Bind Utils
+    // Bind Utilities
     bind<BaseLogger>(TYPES.BaseLogger).toDynamicValue((context) => {
         // Get requesting class name
         const className =
@@ -27,7 +27,7 @@ export const bindings = new AsyncContainerModule(async (bind: inversify.interfac
         // Add spaces between camel case words
         const spacedName = className.replace(/([A-Z])/g, ' $1').trim();
 
-        // Return a new logger instance with context tag
+        // Return a new logger instance with context tag (class name)
         return new WinstonLogger(spacedName).logger;
     });
 

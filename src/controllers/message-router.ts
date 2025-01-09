@@ -5,7 +5,7 @@ import { whatsapp as WhatsAppConfig } from '../constants';
 import type { IMessageController } from '../types/classes';
 import type { IMsgMeta } from '../types/message';
 import type { CommandsModule } from '../modules/commands';
-import type { BaseLogger } from '../utils/logger';
+import type { BaseLogger } from '../utilities/logger';
 
 import { TYPES } from '../constants';
 

@@ -5,7 +5,7 @@ import path from 'path';
 
 import type { ICommandsModule } from '../types/classes';
 import type { CooldownModule } from '../modules/cooldown';
-import type { BaseLogger } from '../utils/logger';
+import type { BaseLogger } from '../utilities/logger';
 import type { IMsgMeta } from '../types/message';
 import type { ICommandData } from '../types/command';
 

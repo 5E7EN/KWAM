@@ -14,7 +14,7 @@ import { IMsgMeta, TMsgType } from '../types/message';
 
 import type { IWhatsappClient } from '../types/classes/clients/whatsapp';
 import type { MessageController } from '../controllers/message-router';
-import type { BaseLogger } from '../utils/logger';
+import type { BaseLogger } from '../utilities/logger';
 
 import { TYPES } from '../constants';
 
