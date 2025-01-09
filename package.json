@@ -9,7 +9,7 @@
     "private": true,
     "scripts": {
         "start": "node .",
-        "build": "tsc",
+        "build": "tsc .",
         "dev": "ts-node-dev --respawn ./src/index.ts"
     },
     "dependencies": {

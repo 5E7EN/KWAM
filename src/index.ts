@@ -4,7 +4,6 @@ import { Container } from 'inversify';
 import { bindings } from './inversify.config';
 import { WhatsappClient } from './clients/whatsapp';
 import { WinstonLogger } from './utilities/logger';
-import { TYPES } from './constants';
 
 (async () => {
     // Create logger for this context
@@ -16,13 +15,14 @@ import { TYPES } from './constants';
         await container.loadAsync(bindings);
 
         // Connect to whatsapp
+        // TODO: Use .resolve() instead?
         const whatsappClient = await container.getAsync<WhatsappClient>(TYPES.WhatsappClient);
 
         // TODO: Replace with a proper logger instance somehow
         logger.info(
-            `ALL SERVICES RUNNING! | Logged in as: ${
+            `ALL SERVICES RUNNING! · Logged in as: ${
                 whatsappClient.chatClient.user.id.split(':')[0]
-            } | GLHF!`
+            } · GLHF!`
         );
     } catch (err) {
         logger.error(`Error encountered during initialization: ${err + err?.stack}`);

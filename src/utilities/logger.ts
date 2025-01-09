@@ -1,3 +1,4 @@
+import { injectable } from 'inversify';
 import chalk from 'chalk';
 import winston, { createLogger, format, transports } from 'winston';
 import type { Logger } from 'winston';
@@ -21,7 +22,8 @@ interface ITransformableInfo {
 
 export type BaseLogger = Logger;
 
-export class WinstonLogger implements ILogger {
+@injectable()
+export class WinstonLogger {
     private readonly _contextTag: string;
     private readonly _logLevel: ELogLevel;
     private readonly _logger: BaseLogger;
