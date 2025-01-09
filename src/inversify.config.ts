@@ -1,15 +1,15 @@
 import inversify, { AsyncContainerModule } from 'inversify';
 
-import { WhatsappClient } from '../clients/whatsapp';
+import { WhatsappClient } from './clients/whatsapp';
 
-import { MessageController } from '../controllers/message-router';
+import { MessageController } from './controllers/message-router';
 
-import { CommandsModule } from '../modules/commands';
+import { CooldownModule } from './modules/cooldown';
+import { CommandsModule } from './modules/commands';
 
-import { BaseLogger, WinstonLogger } from '../utils/logger';
+import { BaseLogger, WinstonLogger } from './utils/logger';
 
-import { TYPES } from '../constants';
-import { CooldownModule } from '../modules/cooldown';
+import { TYPES } from './constants';
 
 // TODO: Use self binding? See: https://github.com/inversify/InversifyJS/blob/master/wiki/classes_as_id.md
 export const bindings = new AsyncContainerModule(async (bind: inversify.interfaces.Bind) => {

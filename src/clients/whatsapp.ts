@@ -12,13 +12,14 @@ import { Boom } from '@hapi/boom';
 import { whatsapp as WhatsAppConfig } from '../constants';
 import { IMsgMeta, TMsgType } from '../types/message';
 
+import type { IWhatsappClient } from '../types/classes/clients/whatsapp';
 import type { MessageController } from '../controllers/message-router';
 import type { BaseLogger } from '../utils/logger';
 
 import { TYPES } from '../constants';
 
 @injectable()
-export class WhatsappClient {
+export class WhatsappClient implements IWhatsappClient {
     public chatClient: ReturnType<typeof createWASocket>;
     // Keep track of when the client connected so that old messages aren't processed (as they will flood in after bot inactivity)
     private timeOfConnect: number;
@@ -33,17 +34,16 @@ export class WhatsappClient {
         this._messageController = messageController;
     }
 
-    // This method will be automatically called after dependencies are resolved
     @postConstruct()
     public async init(): Promise<void> {
-        await this.initialize();
+        await this.connectWhatsapp();
     }
 
     /**
-     * @description Constructs the chat client, configures global message ratebucket, and connects to Twitch IRC servers.
-     * @returns A `Promise` which resolves when the client has established a connection.
+     * Initializes and connects the WhatsApp client socket.
+     * @returns A promise that resolves when the client has connected successfully, or rejects if an error occurs.
      */
-    public initialize = async (): Promise<void> => {
+    private connectWhatsapp = async (): Promise<void> => {
         let initialEventFired = false;
         const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
@@ -75,7 +75,9 @@ export class WhatsappClient {
     };
 
     /**
-     * @description Called when the connection state of the client changes.
+     * Called when the connection state changes.
+     * @param update - The connection state update.
+     * @returns Nothing. Just a pintel'e function.
      */
     private onConnectionUpdate = (update: Partial<ConnectionState>) => {
         const { connection, lastDisconnect } = update;
@@ -104,7 +106,7 @@ export class WhatsappClient {
 
                 // Reconnect if not logged out
                 if (shouldReconnect) {
-                    this.initialize();
+                    this.connectWhatsapp();
                 }
 
                 break;
@@ -115,7 +117,11 @@ export class WhatsappClient {
     };
 
     /**
-     * @description Called when a message is received on WhatsApp.
+     * Called when new messages are received.
+     * @param client - The WhatsApp client instance.
+     * @param messages - The messages that were received.
+     * @param type - The type of message upsert (e.g., 'append', 'notify' - see MessageUpsertType type for description).
+     * @returns Nothing. Just a pintel'e function.
      */
     private onMessage = async ({
         client,
@@ -217,11 +223,11 @@ export class WhatsappClient {
     };
 
     /**
-     * @description Sends a WhatsApp message via the Baileys client.
-     * @param msgMeta Message meta object.
-     * @param jid jid in which to deliver the message.
-     * @param message Message string.
-     * @returns A `Promise` which resolves when the message has been delivered successfully.
+     * Sends a WhatsApp message via the Baileys client.
+     * @param msgMeta - Metadata about the message being sent.
+     * @param jid - JID (WhatsApp ID) of the recipient.
+     * @param message - The message content to be sent.
+     * @returns A promise that resolves when the message has been delivered successfully.
      */
     private sendMsg = async (msgMeta: IMsgMeta, jid: string, message: string) => {
         try {
@@ -233,6 +239,11 @@ export class WhatsappClient {
         }
     };
 
+    /**
+     * Determines the type of a received WhatsApp message.
+     * @param msg - The received message object.
+     * @returns The type of the message (e.g., text, image, video).
+     */
     private getMessageType = (msg: WAMessage) => {
         const {
             extendedTextMessage,
@@ -259,6 +270,11 @@ export class WhatsappClient {
         return msgType;
     };
 
+    /**
+     * Extracts the text content from a received WhatsApp message.
+     * @param msg - The received message object.
+     * @returns The text content of the message, or `null` if none exists.
+     */
     private getMessageText = (msg: WAMessage): string | null => {
         const {
             extendedTextMessage,

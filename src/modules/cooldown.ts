@@ -1,10 +1,12 @@
 import { injectable } from 'inversify';
 import type { IMsgMeta } from '../types/message';
 
+import type { ICooldownModule } from '../types/classes';
 import type { TCooldownType, ICooldownCheckResult } from '../types/cooldown';
 
+//* We make this injectable since in the future it might be used for app health stats, even though right now it's only used in one place (and has no deps)
 @injectable()
-export class CooldownModule {
+export class CooldownModule implements ICooldownModule {
     private cooldowns: Map<string, number> = new Map();
 
     /**
@@ -35,13 +37,6 @@ export class CooldownModule {
         }
     }
 
-    /**
-     * Adds a cooldown for a specific type.
-     * @param msgMeta - Metadata containing group and user details.
-     * @param type - Type of cooldown.
-     * @param durationMs - Duration of cooldown in milliseconds.
-     * @param commandName - The command name, if applicable.
-     */
     public add(
         msgMeta: IMsgMeta,
         type: TCooldownType,
@@ -56,12 +51,6 @@ export class CooldownModule {
         this.cooldowns.set(key, expiration);
     }
 
-    /**
-     * Checks if a cooldown of any type (User, Group, etc.) is currently active.
-     * @param commandName - The command name.
-     * @param msgMeta - Metadata containing group and user details.
-     * @returns Cooldown check result.
-     */
     public checkAny(
         commandName: string,
         msgMeta: IMsgMeta
@@ -94,12 +83,6 @@ export class CooldownModule {
         return result;
     }
 
-    /**
-     * Removes a specific cooldown.
-     * @param msgMeta - Metadata containing group and user details.
-     * @param type - Type of cooldown.
-     * @param commandName - The command name, if applicable.
-     */
     public remove(msgMeta: IMsgMeta, type: TCooldownType, commandName?: string): void {
         const key = this.generateKey(msgMeta, type, commandName);
 

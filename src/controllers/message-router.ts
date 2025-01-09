@@ -1,15 +1,16 @@
 import { injectable, inject } from 'inversify';
+import type createWASocket from '@whiskeysockets/baileys';
 
 import { whatsapp as WhatsAppConfig } from '../constants';
+import type { IMessageController } from '../types/classes';
 import type { IMsgMeta } from '../types/message';
 import type { CommandsModule } from '../modules/commands';
 import type { BaseLogger } from '../utils/logger';
 
 import { TYPES } from '../constants';
-import type createWASocket from '@whiskeysockets/baileys';
 
 @injectable()
-export class MessageController {
+export class MessageController implements IMessageController {
     private _logger: BaseLogger;
     private _commandsModule: CommandsModule;
 

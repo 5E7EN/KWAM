@@ -5,7 +5,7 @@ export interface ICommandParams {
     msgMeta: IMsgMeta;
 }
 
-// TODO: Actually enforce this type in command files
+// TODO: Actually use/infer this type in command files
 export interface ICommandData {
     name: string;
     aliases?: string[];

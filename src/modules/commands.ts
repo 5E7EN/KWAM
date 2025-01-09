@@ -3,8 +3,8 @@ import { readdir } from 'fs/promises';
 import { performance } from 'perf_hooks';
 import path from 'path';
 
-import { CooldownModule } from '../modules/cooldown';
-
+import type { ICommandsModule } from '../types/classes';
+import type { CooldownModule } from '../modules/cooldown';
 import type { BaseLogger } from '../utils/logger';
 import type { IMsgMeta } from '../types/message';
 import type { ICommandData } from '../types/command';
@@ -12,7 +12,7 @@ import type { ICommandData } from '../types/command';
 import { TYPES } from '../constants';
 
 @injectable()
-export class CommandsModule {
+export class CommandsModule implements ICommandsModule {
     private _logger: BaseLogger;
     private _cooldownModule: CooldownModule;
     private readonly _commands = new Map<string, ICommandData>();
@@ -22,19 +22,17 @@ export class CommandsModule {
         @inject(TYPES.BaseLogger) logger: BaseLogger,
         @inject(TYPES.CooldownModule) cooldownModule: CooldownModule
     ) {
-        // TODO: Figure out how these can be injected instead of needing to instantiate them here manually
         this._logger = logger;
         this._cooldownModule = cooldownModule;
     }
 
-    // This method will be automatically called after dependencies are resolved
     @postConstruct()
     public async init(): Promise<void> {
         await this.loadCommands();
     }
 
     // TODO: Instead of these kind of hacky commands, use classes (since this is typescript and can't add files on the go anyway)
-    async loadCommands(purgeExisting?: boolean): Promise<void> {
+    public async loadCommands(purgeExisting?: boolean): Promise<void> {
         if (purgeExisting) {
             this._commands.clear();
             this._aliases.clear();
@@ -70,19 +68,6 @@ export class CommandsModule {
         }
 
         this._logger.verbose(`Registered ${this._commands.size} commands.`);
-    }
-
-    private addCommand(command: ICommandData): void {
-        if (command.name) {
-            this._commands.set(command.name, command);
-        }
-        if (command.aliases) {
-            command.aliases.forEach((alias) => this._aliases.set(alias, command.name));
-        }
-    }
-
-    private getCommand(name: string): ICommandData | undefined {
-        return this._commands.get(name) ?? this._commands.get(this._aliases.get(name)!);
     }
 
     public async executeCommand(msgMeta: IMsgMeta): Promise<void> {
@@ -202,7 +187,29 @@ export class CommandsModule {
         }
     }
 
-    // async logExecution(
+    /**
+     * Adds a command to the command registry.
+     * @param command The command data object to add.
+     */
+    private addCommand(command: ICommandData): void {
+        if (command.name) {
+            this._commands.set(command.name, command);
+        }
+        if (command.aliases) {
+            command.aliases.forEach((alias) => this._aliases.set(alias, command.name));
+        }
+    }
+
+    /**
+     * Retrieves a command from the registry by its name or alias.
+     * @param name The name or alias of the command to retrieve.
+     * @returns The command data object, or null if not found.
+     */
+    private getCommand(name: string): ICommandData | null {
+        return this._commands.get(name) ?? this._commands.get(this._aliases.get(name)) ?? null;
+    }
+
+    // async private logExecution(
     //     msgMeta: IMsgMeta,
     //     commandData: ICommandData,
     //     commandResult: any,

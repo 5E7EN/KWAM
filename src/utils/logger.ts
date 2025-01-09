@@ -3,6 +3,7 @@ import winston, { createLogger, format, transports } from 'winston';
 import type { Logger } from 'winston';
 
 import { app as AppConfig } from '../constants';
+import type { ILogger } from '../types/classes';
 
 export enum ELogLevel {
     SILLY = 'silly',
@@ -20,7 +21,7 @@ interface ITransformableInfo {
 
 export type BaseLogger = Logger;
 
-export class WinstonLogger {
+export class WinstonLogger implements ILogger {
     private readonly _contextTag: string;
     private readonly _logLevel: ELogLevel;
     private readonly _logger: BaseLogger;

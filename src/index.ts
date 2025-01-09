@@ -1,11 +1,9 @@
 import 'reflect-metadata';
 import { Container } from 'inversify';
 
-import { bindings } from './config/ioc';
+import { bindings } from './inversify.config';
 import { WhatsappClient } from './clients/whatsapp';
-
 import { WinstonLogger } from './utils/logger';
-
 import { TYPES } from './constants';
 
 (async () => {
