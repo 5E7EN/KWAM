@@ -5,6 +5,8 @@ import { bindings } from './inversify.config';
 import { WhatsappClient } from './clients/whatsapp';
 import { WinstonLogger } from './utilities/logger';
 
+import { TYPES } from './constants';
+
 (async () => {
     // Create logger for this context
     const logger = new WinstonLogger('Main').logger;
