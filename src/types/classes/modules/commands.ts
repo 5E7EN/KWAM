@@ -1,4 +1,4 @@
-import type { IMsgMeta } from '../../message';
+import type { IMsgContext, IMsgMeta } from '../../message';
 
 export interface ICommandsModule {
     /**
@@ -18,5 +18,5 @@ export interface ICommandsModule {
      *
      * @param msgMeta - Metadata of the received message containing information about the command.
      */
-    executeCommand(msgMeta: IMsgMeta): Promise<void>;
+    executeCommand(msgMeta: IMsgMeta, msgContext: IMsgContext): Promise<void>;
 }

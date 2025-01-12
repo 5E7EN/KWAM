@@ -3,7 +3,7 @@ import type createWASocket from '@whiskeysockets/baileys';
 
 import { whatsapp as WhatsAppConfig } from '../constants';
 import type { IMessageController } from '../types/classes';
-import type { IMsgMeta } from '../types/message';
+import type { IMsgContext, IMsgMeta } from '../types/message';
 import type { CommandsModule } from '../modules/commands';
 import type { BaseLogger } from '../utilities/logger';
 
@@ -24,17 +24,14 @@ export class MessageController implements IMessageController {
 
     public async handleMessage(
         client: ReturnType<typeof createWASocket>,
-        msgMeta: IMsgMeta
+        msgMeta: IMsgMeta,
+        msgContext: IMsgContext
     ): Promise<void> {
         const { message, user, isGroup, group } = msgMeta;
 
         // Ignore messages from self
         // TODO: Debug, uncomment this
         // if (user.number === WhatsAppConfig.OPERATING_NUMBER) return;
-
-        // Ignore messages from disabled groups
-        // TODO: Is this really necessary, because I can just leave the group
-        if (isGroup && group.enabled === false) return;
 
         // Ignore if group is locked (only admins can send messages)
         // TODO: Does this belong here? Technically we should still handle the incoming message (not sure for what purpose yet though...)
@@ -60,7 +57,7 @@ export class MessageController implements IMessageController {
 
         // Check if message starts with prefix; then execute command
         if (message.trimmed.startsWith(WhatsAppConfig.PREFIX)) {
-            await this._commandsModule.executeCommand(msgMeta);
+            await this._commandsModule.executeCommand(msgMeta, msgContext);
         }
     }
 }

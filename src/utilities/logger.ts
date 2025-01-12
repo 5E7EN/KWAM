@@ -4,7 +4,6 @@ import winston, { createLogger, format, transports } from 'winston';
 import type { Logger } from 'winston';
 
 import { app as AppConfig } from '../constants';
-import type { ILogger } from '../types/classes';
 
 export enum ELogLevel {
     SILLY = 'silly',

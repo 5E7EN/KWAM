@@ -1,8 +1,9 @@
 import type { TCooldownType } from './cooldown';
-import type { IMsgMeta } from './message';
+import type { IMsgContext, IMsgMeta } from './message';
 
 export interface ICommandParams {
     msgMeta: IMsgMeta;
+    msgContext: IMsgContext;
 }
 
 // TODO: Actually use/infer this type in command files

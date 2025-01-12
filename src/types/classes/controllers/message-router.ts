@@ -1,5 +1,5 @@
 import type createWASocket from '@whiskeysockets/baileys';
-import type { IMsgMeta } from '../../message';
+import type { IMsgContext, IMsgMeta } from '../../message';
 
 export interface IMessageController {
     /**
@@ -9,5 +9,9 @@ export interface IMessageController {
      * @param msgMeta - Metadata of the received message.
      * @returns A promise that resolves when the message handling process is complete.
      */
-    handleMessage(client: ReturnType<typeof createWASocket>, msgMeta: IMsgMeta): Promise<void>;
+    handleMessage(
+        client: ReturnType<typeof createWASocket>,
+        msgMeta: IMsgMeta,
+        msgContext: IMsgContext
+    ): Promise<void>;
 }

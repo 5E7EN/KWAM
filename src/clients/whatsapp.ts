@@ -1,16 +1,18 @@
 import { injectable, inject, postConstruct } from 'inversify';
 import createWASocket, {
+    AnyMessageContent,
     ConnectionState,
     DisconnectReason,
     GroupMetadata,
     MessageUpsertType,
+    MiscMessageGenerationOptions,
     useMultiFileAuthState,
     WAMessage
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 
 import { whatsapp as WhatsAppConfig } from '../constants';
-import { IMsgMeta, TMsgType } from '../types/message';
+import { IMsgContext, IMsgMeta, TMsgType } from '../types/message';
 
 import type { IWhatsappClient } from '../types/classes/clients/whatsapp';
 import type { MessageController } from '../controllers/message-router';
@@ -154,6 +156,9 @@ export class WhatsappClient implements IWhatsappClient {
                 // Determine if message is a command
                 const isCommand = messageText.startsWith(WhatsAppConfig.PREFIX);
                 const args = messageText.slice(WhatsAppConfig.PREFIX.length).trim().split(/ +/g);
+                // Get command name
+                //* This removes the command from the args array
+                const commandName = args.shift().toLowerCase();
 
                 // Fetch group metadata, if applicable
                 const isGroup = remoteJid.endsWith('@g.us');
@@ -170,22 +175,14 @@ export class WhatsappClient implements IWhatsappClient {
                 const fromUserJid = isGroup ? msg.key.participant : msg.key.remoteJid;
 
                 // Construct message metadata object
-                // TODO: This msgMeta object should really only contain data directly related to the message
-                // TODO: Create a separate object for internal data/methods associated with the message/its origin
                 const msgMeta: IMsgMeta = {
                     msgType: messageType,
-                    command: isCommand ? args.shift().toLowerCase() : null,
+                    command: isCommand ? commandName : null,
                     args: isCommand ? args : null,
                     user: {
                         name: msg.pushName,
                         number: fromUserJid.split('@')[0],
-                        jid: fromUserJid,
-                        sendPrivateMessage: async (message) => {
-                            await this.sendMsg(msgMeta, msgMeta.user.jid, `${message}`);
-                        },
-                        replyPrivateMessage: async (message) => {
-                            // TODO: Implement
-                        }
+                        jid: fromUserJid
                     },
                     message: {
                         id: msg.key.id,
@@ -199,43 +196,68 @@ export class WhatsappClient implements IWhatsappClient {
                         ? {
                               isLocked: groupMetadata.announce,
                               name: groupMetadata.subject,
-                              jid: remoteJid,
-                              enabled: true, // TODO: Eventually this should be pulled from DB
-                              sendMessage: async (message) => {
-                                  await this.sendMsg(msgMeta, remoteJid, `${message}`);
-                              },
-                              replyMessage: async (message) => {
-                                  // TODO: Implement
-                              }
+                              jid: remoteJid
                           }
-                        : null,
+                        : null
+                };
 
+                // Create message context
+                const msgContext: IMsgContext = {
+                    sendPrivateMessage: async (message) => {
+                        await this.sendMsg(msgMeta.user.jid, { text: message });
+                    },
+                    replyPrivateMessage: async (message) => {
+                        // Implement, use `quoted`
+                    },
+                    sendGroupMessage: isGroup
+                        ? async (message) => {
+                              await this.sendMsg(msgMeta.group.jid, {
+                                  text: message
+                              });
+                          }
+                        : undefined,
+                    replyGroupMessage: isGroup
+                        ? async (message) => {
+                              // Implement, use `quoted`
+                          }
+                        : undefined,
                     replyUsage: async (usageString) => {
-                        // TODO: Implement
                         // If message originated from a group, reply in the group, otherwise reply privately
+                        const replyJid = isGroup ? remoteJid : msgMeta.user.jid;
+                        const userNumber = msgMeta.user.number;
+
+                        await this.sendMsg(
+                            replyJid,
+                            {
+                                text: `Usage: ${WhatsAppConfig.PREFIX + commandName} ${usageString}`
+                            },
+                            { quoted: msg }
+                        );
                     }
                 };
 
                 // Forward Message to Router
-                this._messageController.handleMessage(this.chatClient, msgMeta);
+                this._messageController.handleMessage(this.chatClient, msgMeta, msgContext);
             })
         );
     };
 
     /**
-     * Sends a WhatsApp message via the Baileys client.
-     * @param msgMeta - Metadata about the message being sent.
+     * Simple error handling wrapper for sends a WhatsApp message via the Baileys client.
      * @param jid - JID (WhatsApp ID) of the recipient.
-     * @param message - The message content to be sent.
+     * @param content - The message content to send.
+     * @param options - Additional options for message delivery.
      * @returns A promise that resolves when the message has been delivered successfully.
      */
-    private sendMsg = async (msgMeta: IMsgMeta, jid: string, message: string) => {
+    private sendMsg = async (
+        jid: string,
+        content: AnyMessageContent,
+        options?: MiscMessageGenerationOptions
+    ) => {
         try {
-            await this.chatClient.sendMessage(jid, { text: message });
+            await this.chatClient.sendMessage(jid, content, options);
         } catch (err) {
-            this._logger.error(
-                `[WhatsApp | Message Sender] Error sending message: ${err + err?.stack}`
-            );
+            this._logger.error(`[Message Sender] Error sending message: ${err + err?.stack}`);
         }
     };
 

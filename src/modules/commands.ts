@@ -6,7 +6,7 @@ import path from 'path';
 import type { ICommandsModule } from '../types/classes';
 import type { CooldownModule } from '../modules/cooldown';
 import type { BaseLogger } from '../utilities/logger';
-import type { IMsgMeta } from '../types/message';
+import type { IMsgContext, IMsgMeta } from '../types/message';
 import type { ICommandData } from '../types/command';
 
 import { TYPES } from '../constants';
@@ -70,7 +70,7 @@ export class CommandsModule implements ICommandsModule {
         this._logger.verbose(`Registered ${this._commands.size} commands.`);
     }
 
-    public async executeCommand(msgMeta: IMsgMeta): Promise<void> {
+    public async executeCommand(msgMeta: IMsgMeta, msgContext: IMsgContext): Promise<void> {
         const commandData = this.getCommand(msgMeta.command);
 
         if (commandData && commandData.enabled !== false) {
@@ -174,12 +174,12 @@ export class CommandsModule implements ICommandsModule {
                 //         type: commandData.cooldown?.type || ''
                 //     });
                 // }
-                return msgMeta.replyUsage(commandData.usage);
+                return msgContext.replyUsage(commandData.usage);
             }
 
             /********************** Execution *************************/
             const execStart = performance.now();
-            const commandResult = await commandData.run({ msgMeta });
+            const commandResult = await commandData.run({ msgMeta, msgContext });
             const execTotal = Math.round(performance.now() - execStart);
 
             /**************** Post Execution & Logging ****************/

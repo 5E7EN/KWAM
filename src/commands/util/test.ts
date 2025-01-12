@@ -1,7 +1,7 @@
 import type { ICommandParams } from '../../types/command';
 
-async function run({ msgMeta }: ICommandParams): Promise<void> {
-    msgMeta.group.sendMessage('Hello world!');
+async function run({ msgMeta, msgContext }: ICommandParams): Promise<void> {
+    msgContext.sendGroupMessage('Hello world!');
 }
 
 export default {

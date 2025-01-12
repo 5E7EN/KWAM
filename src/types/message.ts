@@ -1,5 +1,9 @@
 import type { proto } from '@whiskeysockets/baileys';
 
+/**
+ * Message metadata object.
+ * Contains information about the message, user, and group.
+ */
 export interface IMsgMeta {
     msgType: string;
     command: string;
@@ -7,8 +11,6 @@ export interface IMsgMeta {
         name: string;
         number: string;
         jid: string;
-        replyPrivateMessage: (text: string) => Promise<void>;
-        sendPrivateMessage: (text: string) => Promise<void>;
     };
     message: {
         id: string;
@@ -22,13 +24,20 @@ export interface IMsgMeta {
         isLocked: boolean;
         name: string;
         jid: string;
-        enabled: boolean;
-        sendMessage: (text: string) => Promise<void>;
-        replyMessage: (text: string) => Promise<void>;
     };
     args: string[];
+}
 
-    replyUsage: (usage: string) => Promise<void>;
+/**
+ * Message context object.
+ * Includes methods for user interaction. Will eventually include data associated with the message origin, from the database.
+ */
+export interface IMsgContext {
+    sendPrivateMessage: (message: string) => Promise<void>;
+    replyPrivateMessage: (message: string) => Promise<void>;
+    sendGroupMessage?: (message: string) => Promise<void>;
+    replyGroupMessage?: (message: string) => Promise<void>;
+    replyUsage: (usageString: string) => Promise<void>;
 }
 
 export type TMsgType =
