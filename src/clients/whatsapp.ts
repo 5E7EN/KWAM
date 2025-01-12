@@ -209,18 +209,23 @@ export class WhatsappClient implements IWhatsappClient {
                     replyPrivateMessage: async (message) => {
                         // Implement, use `quoted`
                     },
-                    sendGroupMessage: isGroup
-                        ? async (message) => {
-                              await this.sendMsg(msgMeta.group.jid, {
-                                  text: message
-                              });
-                          }
-                        : undefined,
-                    replyGroupMessage: isGroup
-                        ? async (message) => {
-                              // Implement, use `quoted`
-                          }
-                        : undefined,
+                    sendGroupMessage: async (message) => {
+                        if (!isGroup) {
+                            throw new Error('Cannot send group message to non-group chat');
+                        }
+
+                        // Send message to group
+                        await this.sendMsg(msgMeta.group.jid, {
+                            text: message
+                        });
+                    },
+                    replyGroupMessage: async (message) => {
+                        if (!isGroup) {
+                            throw new Error('Cannot send group message to non-group chat');
+                        }
+
+                        // Implement, use `quoted`
+                    },
                     replyUsage: async (usageString) => {
                         // If message originated from a group, reply in the group, otherwise reply privately
                         const replyJid = isGroup ? remoteJid : msgMeta.user.jid;
