@@ -2,15 +2,6 @@ import createWASocket from '@whiskeysockets/baileys';
 import type { proto } from '@whiskeysockets/baileys';
 
 /**
- * User level types. These are mostly inferred via the incoming message metadata - with the exception of 'owner'.
- * - User: Regular user in the WhatsApp group
- * - Admin: Admin of the WhatsApp group
- * - Superadmin: Creator of the WhatsApp group
- * - Owner: Bot owner
- */
-export type TUserLevels = 'user' | 'admin' | 'superadmin' | 'owner';
-
-/**
  * Message metadata object.
  * Contains information about the message, user, and group.
  */

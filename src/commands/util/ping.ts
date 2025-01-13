@@ -1,3 +1,4 @@
+import { EUserPermissions } from '../../types/permission';
 import type { ICommandParams } from '../../types/command';
 
 async function run({ msgMeta, msgContext }: ICommandParams): Promise<void> {
@@ -7,7 +8,7 @@ async function run({ msgMeta, msgContext }: ICommandParams): Promise<void> {
 export default {
     name: 'ping',
     aliases: [],
-    accessLevel: 'owner',
+    accessLevel: EUserPermissions.BotOwner,
     cooldown: { type: 'UserCommand', length: 5 },
     category: 'Utility',
     description: 'Test',

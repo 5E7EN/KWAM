@@ -4,10 +4,12 @@ import { performance } from 'perf_hooks';
 import path from 'path';
 
 import { whatsapp as WhatsAppConfig } from '../constants';
+import { EUserPermissions } from '../types/permission';
 import type { ICommandsModule } from '../types/classes';
-import type { CooldownModule } from '../modules/cooldown';
+import type { PermissionModule } from './permission';
+import type { CooldownModule } from './cooldown';
 import type { BaseLogger } from '../utilities/logger';
-import type { IMsgContext, IMsgMeta, TUserLevels } from '../types/message';
+import type { IMsgContext, IMsgMeta } from '../types/message';
 import type { ICommandData } from '../types/command';
 
 import { TYPES } from '../constants';
@@ -16,15 +18,18 @@ import { TYPES } from '../constants';
 export class CommandsModule implements ICommandsModule {
     private _logger: BaseLogger;
     private _cooldownModule: CooldownModule;
+    private _permissionModule: PermissionModule;
     private readonly _commands = new Map<string, ICommandData>();
     private readonly _aliases = new Map<string, string>();
 
     public constructor(
         @inject(TYPES.BaseLogger) logger: BaseLogger,
-        @inject(TYPES.CooldownModule) cooldownModule: CooldownModule
+        @inject(TYPES.CooldownModule) cooldownModule: CooldownModule,
+        @inject(TYPES.PermissionModule) permissionModule: PermissionModule
     ) {
         this._logger = logger;
         this._cooldownModule = cooldownModule;
+        this._permissionModule = permissionModule;
     }
 
     @postConstruct()
@@ -83,84 +88,41 @@ export class CommandsModule implements ICommandsModule {
             // }
 
             /********************** Permissions ***********************/
-            // Determine user access level; default to 'user'
-            //* We do it in the commands module since this check isn't needed for every incoming message
-            //* Eventually have this data cached, and only update cache when `groups.update` event is fired - (UPDATE: this might not be fired for .groupMetadata what we need)
-            let userAccessLevel: TUserLevels = 'user';
-
-            if (msgMeta.isGroup) {
-                const membersData = await msgContext.client.groupMetadata(msgMeta.group.jid);
-                const userData = membersData.participants.find((p) => p.id === msgMeta.user.jid);
-
-                if (!userData) {
-                    this._logger.warn(
-                        `Couldn't load user info: "${msgMeta.user.jid}" in group "${msgMeta.group.jid}"`
-                    );
-                }
-
-                // Check if user is any type of group admin
-                if (userData.admin) {
-                    userAccessLevel = userData.admin === 'superadmin' ? 'superadmin' : 'admin';
-                }
-
-                // Check if user is bot owner
-                if (msgMeta.user.number === WhatsAppConfig.OWNER_NUMBER) {
-                    userAccessLevel = 'owner';
-                }
-            }
+            const userPermissions = await this._permissionModule.getUserPermissions(
+                msgMeta,
+                msgContext
+            );
 
             // Enforce permissions
-            // TODO: This currently only allows literal matches, but we should allow for more flexible permission checks
-            // TODO (e.g. 'owner' should also be able to run 'superadmin' commands, etc. down the hierarchy - but not the other way around)
-            if (commandData.accessLevel === 'owner' && userAccessLevel !== 'owner') return;
-            if (commandData.accessLevel === 'superadmin' && userAccessLevel !== 'superadmin')
+            if (
+                commandData.accessLevel === EUserPermissions.User &&
+                !this._permissionModule.isPermitted(userPermissions, EUserPermissions.User)
+            )
                 return;
-            if (commandData.accessLevel === 'admin' && userAccessLevel !== 'admin') return;
-
-            // if (
-            //     commandData.accessLevel === 'GlobalAdmin' &&
-            //     !bot.Services.permission.isPermitted(
-            //         msgMeta.user.permissions,
-            //         permissionEnum.GLOBAL_ADMIN
-            //     )
-            // )
-            //     return;
-            // if (
-            //     commandData.accessLevel === 'Reporter' &&
-            //     !bot.Services.permission.isPermitted(
-            //         msgMeta.user.permissions,
-            //         permissionEnum.REPORTER
-            //     )
-            // )
-            //     return;
-            // if (
-            //     commandData.accessLevel === 'Broadcaster' &&
-            //     !bot.Services.permission.isPermitted(
-            //         msgMeta.user.permissions,
-            //         permissionEnum.BROADCASTER
-            //     )
-            // )
-            //     return;
-            // if (
-            //     commandData.accessLevel === 'ChannelAdmin' &&
-            //     !bot.Services.permission.isPermitted(
-            //         msgMeta.user.permissions,
-            //         permissionEnum.CHANNEL_ADMIN
-            //     )
-            // )
-            //     return;
-            // if (
-            //     commandData.accessLevel === 'Moderator' &&
-            //     !bot.Services.permission.isPermitted(
-            //         msgMeta.user.permissions,
-            //         permissionEnum.MODERATOR
-            //     )
-            // )
-            //     return;
-            // if (!commandData.accessLevel)
-            //     return this._logger.warn(
-            //         `[Command Executer | Permissions] Unable to determine access level of command: ${commandData.name}.`
-            //     );
+            if (
+                commandData.accessLevel === EUserPermissions.GroupAdmin &&
+                !this._permissionModule.isPermitted(userPermissions, EUserPermissions.GroupAdmin)
+            )
+                return;
+            if (
+                commandData.accessLevel === EUserPermissions.GroupOwner &&
+                !this._permissionModule.isPermitted(userPermissions, EUserPermissions.GroupOwner)
+            )
+                return;
+            if (
+                commandData.accessLevel === EUserPermissions.BotOwner &&
+                !this._permissionModule.isPermitted(userPermissions, EUserPermissions.BotOwner)
+            )
+                return;
+            if (
+                commandData.accessLevel === undefined ||
+                (commandData.accessLevel && !(commandData.accessLevel in EUserPermissions))
+            ) {
+                this._logger.warn(
+                    `[Permissions] Unable to determine access level of command: ${commandData.name}.`
+                );
+                return;
+            }
 
             /********************** Cooldowns *************************/
             // Check if any cooldown is active

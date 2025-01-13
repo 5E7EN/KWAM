@@ -30,6 +30,7 @@ export const TYPES = {
 
     CooldownModule: Symbol.for('CooldownModule'),
     CommandsModule: Symbol.for('CommandsModule'),
+    PermissionModule: Symbol.for('PermissionModule'),
 
     MessageController: Symbol('MessageController')
 };

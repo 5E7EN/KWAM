@@ -6,6 +6,7 @@ import { MessageController } from './controllers/message-router';
 
 import { CooldownModule } from './modules/cooldown';
 import { CommandsModule } from './modules/commands';
+import { PermissionModule } from './modules/permission';
 
 import { BaseLogger, WinstonLogger } from './utilities/logger';
 
@@ -16,6 +17,7 @@ export const bindings = new AsyncContainerModule(async (bind: inversify.interfac
     // Bind Modules
     bind<CooldownModule>(TYPES.CooldownModule).to(CooldownModule).inSingletonScope;
     bind<CommandsModule>(TYPES.CommandsModule).to(CommandsModule).inSingletonScope;
+    bind<PermissionModule>(TYPES.PermissionModule).to(PermissionModule).inSingletonScope;
 
     // Bind Utilities
     bind<BaseLogger>(TYPES.BaseLogger).toDynamicValue((context) => {
