@@ -3,10 +3,11 @@ import { readdir } from 'fs/promises';
 import { performance } from 'perf_hooks';
 import path from 'path';
 
+import { whatsapp as WhatsAppConfig } from '../constants';
 import type { ICommandsModule } from '../types/classes';
 import type { CooldownModule } from '../modules/cooldown';
 import type { BaseLogger } from '../utilities/logger';
-import type { IMsgContext, IMsgMeta } from '../types/message';
+import type { IMsgContext, IMsgMeta, TUserLevels } from '../types/message';
 import type { ICommandData } from '../types/command';
 
 import { TYPES } from '../constants';
@@ -81,17 +82,41 @@ export class CommandsModule implements ICommandsModule {
             //     return;
             // }
 
-            // const permissionEnum = bot.Services.permission.enum;
-
             /********************** Permissions ***********************/
-            // if (
-            //     commandData.accessLevel === 'Owner' &&
-            //     !bot.Services.permission.isPermitted(
-            //         msgMeta.user.permissions,
-            //         permissionEnum.BOT_OWNER
-            //     )
-            // )
-            //     return;
+            // Determine user access level; default to 'user'
+            //* We do it in the commands module since this check isn't needed for every incoming message
+            //* Eventually have this data cached, and only update cache when `groups.update` event is fired - (UPDATE: this might not be fired for .groupMetadata what we need)
+            let userAccessLevel: TUserLevels = 'user';
+
+            if (msgMeta.isGroup) {
+                const membersData = await msgContext.client.groupMetadata(msgMeta.group.jid);
+                const userData = membersData.participants.find((p) => p.id === msgMeta.user.jid);
+
+                if (!userData) {
+                    this._logger.warn(
+                        `Couldn't load user info: "${msgMeta.user.jid}" in group "${msgMeta.group.jid}"`
+                    );
+                }
+
+                // Check if user is any type of group admin
+                if (userData.admin) {
+                    userAccessLevel = userData.admin === 'superadmin' ? 'superadmin' : 'admin';
+                }
+
+                // Check if user is bot owner
+                if (msgMeta.user.number === WhatsAppConfig.OWNER_NUMBER) {
+                    userAccessLevel = 'owner';
+                }
+            }
+
+            // Enforce permissions
+            // TODO: This currently only allows literal matches, but we should allow for more flexible permission checks
+            // TODO (e.g. 'owner' should also be able to run 'superadmin' commands, etc. down the hierarchy - but not the other way around)
+            if (commandData.accessLevel === 'owner' && userAccessLevel !== 'owner') return;
+            if (commandData.accessLevel === 'superadmin' && userAccessLevel !== 'superadmin')
+                return;
+            if (commandData.accessLevel === 'admin' && userAccessLevel !== 'admin') return;
+
             // if (
             //     commandData.accessLevel === 'GlobalAdmin' &&
             //     !bot.Services.permission.isPermitted(

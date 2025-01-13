@@ -203,6 +203,7 @@ export class WhatsappClient implements IWhatsappClient {
 
                 // Create message context
                 const msgContext: IMsgContext = {
+                    client: this.chatClient,
                     sendPrivateMessage: async (message) => {
                         await this.sendMsg(msgMeta.user.jid, { text: message });
                     },

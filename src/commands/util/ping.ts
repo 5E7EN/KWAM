@@ -7,7 +7,7 @@ async function run({ msgMeta, msgContext }: ICommandParams): Promise<void> {
 export default {
     name: 'ping',
     aliases: [],
-    accessLevel: 'Owner',
+    accessLevel: 'owner',
     cooldown: { type: 'UserCommand', length: 5 },
     category: 'Utility',
     description: 'Test',

@@ -1,5 +1,5 @@
 import type { TCooldownType } from './cooldown';
-import type { IMsgContext, IMsgMeta } from './message';
+import type { IMsgContext, IMsgMeta, TUserLevels } from './message';
 
 export interface ICommandParams {
     msgMeta: IMsgMeta;
@@ -12,7 +12,7 @@ export interface ICommandData {
     aliases?: string[];
     enabled?: boolean;
     pmOnly?: boolean;
-    accessLevel?: string;
+    accessLevel?: TUserLevels;
     cooldown?: { type: TCooldownType; length: number };
     usage?: string;
     category?: string;

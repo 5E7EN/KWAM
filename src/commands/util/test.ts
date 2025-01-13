@@ -7,7 +7,7 @@ async function run({ msgMeta, msgContext }: ICommandParams): Promise<void> {
 export default {
     name: 'test',
     aliases: [],
-    accessLevel: 'Owner',
+    accessLevel: 'admin',
     cooldown: { type: 'UserCommand', length: 5 },
     category: 'Utility',
     description: 'Test',

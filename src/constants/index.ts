@@ -9,6 +9,7 @@ export const app = {
 };
 
 export const whatsapp = {
+    OWNER_NUMBER: process.env.OWNER_NUMBER || '',
     OPERATING_NUMBER: process.env.OPERATING_NUMBER || '',
     PREFIX: process.env.Twitch_Prefix || '!'
 };
