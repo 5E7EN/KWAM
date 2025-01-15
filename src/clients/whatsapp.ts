@@ -10,6 +10,7 @@ import createWASocket, {
     WAMessage
 } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
+import P from 'pino';
 
 import { whatsapp as WhatsAppConfig } from '../constants';
 import { IMsgContext, IMsgMeta, TMsgType } from '../types/message';
@@ -49,9 +50,11 @@ export class WhatsappClient implements IWhatsappClient {
         let initialEventFired = false;
         const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
+        // TODO: Implement retry mechanism for connection (use exponential backoff)
         this.chatClient = createWASocket({
             printQRInTerminal: true,
-            auth: state
+            auth: state,
+            logger: P({ name: 'WhatsappClient', level: 'error' })
         });
 
         // Events

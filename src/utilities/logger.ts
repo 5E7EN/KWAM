@@ -85,16 +85,14 @@ export class WinstonLogger {
                             contextTag ? chalk.yellow(paddedContextText) + ' -' : ''
                         ];
 
-                        // Get message text, not including the context tag extender
-                        const messageText = info.message.replace(/^\[.*?]( )/, '');
-
                         const messageContent: string[] = [
                             // Remove the context tag and add log message
                             isMessageString
-                                ? // If the message contains newlines, pad each line with spaces to align with the context tag
+                                ? // If the message contains newlines is isn't an error, pad each line with spaces to align with the context tag
                                   // Otherwise, just return the message as-is
-                                  /\n.+?/.test(info.message)
-                                    ? messageText
+                                  /\n.+?/.test(info.message) && info.level.toUpperCase() !== 'ERROR'
+                                    ? info.message
+                                          .replace(/^\[.*?]( )/, '') // Remove context tag extender
                                           .split(/\n/g)
                                           .map((line, idx) => {
                                               // Don't modify the first line since it's already padded
@@ -115,7 +113,7 @@ export class WinstonLogger {
                                               );
                                           })
                                           .join('\n')
-                                    : messageText
+                                    : info.message.replace(/^\[.*?]( )/, '') // Remove context tag extender
                                 : '',
                             // Stringify message object (if present)
                             !isMessageString ? JSON.stringify(info.message, null, 2) : ''

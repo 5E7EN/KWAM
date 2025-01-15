@@ -23,6 +23,7 @@ export class PermissionModule implements IPermissionModule {
         const permissions = new Set<EUserPermissions>();
 
         // Determine group-related permissions
+        // TODO: Use cache for group metadata: https://github.com/WhiskeySockets/Baileys?tab=readme-ov-file#caching-group-metadata-recommended
         if (msgMeta.isGroup) {
             const membersData = await msgContext.client.groupMetadata(msgMeta.group.jid);
             const userData = membersData.participants.find((p) => p.id === msgMeta.user.jid);
