@@ -27,6 +27,7 @@ export const chatCache = {
 //* E.g. BotOwner includes all permissions, GroupOwner includes GroupAdmin and User, etc.
 //* Decided not to support nested permissions, as it would be overkill for this project as of now.
 // TODO: Put this into a parent object for categorization (like "whatsapp" and "app" above)
+// TODO: See note by EUserPermissions in types/permission.ts for potential refactoring
 export const permissionHierarchy: Record<EUserPermissions, EUserPermissions[]> = {
     [EUserPermissions.BotOwner]: [
         EUserPermissions.GroupOwner,
