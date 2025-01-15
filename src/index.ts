@@ -17,10 +17,8 @@ import { TYPES } from './constants';
         await container.loadAsync(bindings);
 
         // Connect to whatsapp
-        // TODO: Use .resolve() instead?
         const whatsappClient = await container.getAsync<WhatsappClient>(TYPES.WhatsappClient);
 
-        // TODO: Replace with a proper logger instance somehow
         logger.info(
             `ALL SERVICES RUNNING! · Logged in as: ${
                 whatsappClient.chatClient.user.id.split(':')[0]
