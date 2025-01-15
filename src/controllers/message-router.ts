@@ -30,7 +30,7 @@ export class MessageController implements IMessageController {
         const { message, user, isGroup, group } = msgMeta;
 
         // Ignore messages from self
-        // TODO: Debug, uncomment this
+        // TODO: Debug; uncomment this (unless the project becomes a selfbot bot)
         // if (user.number === WhatsAppConfig.OPERATING_NUMBER) return;
 
         // Ignore if group is locked (only admins can send messages)
@@ -50,7 +50,7 @@ export class MessageController implements IMessageController {
         // Mark message as read
         client.readMessages([message.rawKey]);
 
-        // Print Message
+        // Print message to console
         this._logger.debug(
             `[${isGroup ? group.name : user.number}] ${user.number}: ${message.text}`
         );
