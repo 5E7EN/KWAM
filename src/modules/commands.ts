@@ -88,6 +88,7 @@ export class CommandsModule implements ICommandsModule {
             // }
 
             /********************** Permissions ***********************/
+            // Get user permissions
             const userPermissions = await this._permissionModule.getUserPermissions(
                 msgMeta,
                 msgContext
@@ -95,73 +96,66 @@ export class CommandsModule implements ICommandsModule {
 
             // Enforce permissions
             if (
-                commandData.accessLevel === EUserPermissions.User &&
-                !this._permissionModule.isPermitted(userPermissions, EUserPermissions.User)
-            )
-                return;
-            if (
-                commandData.accessLevel === EUserPermissions.GroupAdmin &&
-                !this._permissionModule.isPermitted(userPermissions, EUserPermissions.GroupAdmin)
-            )
-                return;
-            if (
-                commandData.accessLevel === EUserPermissions.GroupOwner &&
-                !this._permissionModule.isPermitted(userPermissions, EUserPermissions.GroupOwner)
-            )
-                return;
-            if (
-                commandData.accessLevel === EUserPermissions.BotOwner &&
-                !this._permissionModule.isPermitted(userPermissions, EUserPermissions.BotOwner)
-            )
-                return;
-            if (
                 commandData.accessLevel === undefined ||
                 (commandData.accessLevel && !(commandData.accessLevel in EUserPermissions))
             ) {
                 this._logger.warn(
-                    `[Permissions] Unable to determine access level of command: ${commandData.name}.`
+                    `[Executor] Unable to determine access level of command: ${commandData.name}.`
                 );
+                return;
+            }
+            if (!this._permissionModule.hasPermission(userPermissions, commandData.accessLevel)) {
+                this._logger.debug(
+                    `[Executor] Access denied; insufficient permissions - 
+                    User: ${msgMeta.user.number} | 
+                    Group: ${msgMeta.group.name} | 
+                    Command: ${commandData.name} | 
+                    Needs: "${commandData.accessLevel}" - Has: "${Array.from(userPermissions).join(
+                        ', '
+                    )}"`
+                );
+
                 return;
             }
 
             /********************** Cooldowns *************************/
-            // Check if any cooldown is active
-            const cooldowns = this._cooldownModule.checkAny(commandData.name, msgMeta);
-            const activeCooldown = Object.values(cooldowns).find((cd) => cd?.isOnCooldown);
-            if (activeCooldown) {
-                const { type, remainingTimeMs } = activeCooldown!;
-                this._logger.verbose(
-                    `Cooldown enforced - Type: ${type} | Remaining: ${remainingTimeMs}ms | User: ${msgMeta.user.number} | Group: ${msgMeta.group.name} | Command: ${commandData.name}`
-                );
-                return;
+            // Check if any cooldown is active (if user is not a global admin)
+            if (!this._permissionModule.hasPermission(userPermissions, EUserPermissions.BotOwner)) {
+                const cooldowns = this._cooldownModule.checkAny(commandData.name, msgMeta);
+                const activeCooldown = Object.values(cooldowns).find((cd) => cd?.isOnCooldown);
+                if (activeCooldown) {
+                    const { type, remainingTimeMs } = activeCooldown!;
+                    this._logger.debug(
+                        `[Executor] Cooldown enforced - 
+                        Type: ${type} | 
+                        Remaining: ${remainingTimeMs}ms | 
+                        User: ${msgMeta.user.number} | 
+                        Group: ${msgMeta.group.name} | 
+                        Command: ${commandData.name}`
+                    );
+                    return;
+                }
             }
 
-            // if (
-            //     !bot.Services.permission.isPermitted(
-            //         msgMeta.user.permissions,
-            //         permissionEnum.GLOBAL_ADMIN
-            //     ) &&
-            //     !commandData.whisperOnly
-            // ) {
-            if (commandData.cooldown) {
-                this._cooldownModule.add(
-                    msgMeta,
-                    commandData.cooldown.type,
-                    (commandData.cooldown.length || 1) * 1000,
-                    commandData.name
-                );
+            // Apply cooldown (if user is not a global admin)
+            if (!this._permissionModule.hasPermission(userPermissions, EUserPermissions.BotOwner)) {
+                if (commandData.cooldown) {
+                    this._cooldownModule.add(
+                        msgMeta,
+                        commandData.cooldown.type,
+                        (commandData.cooldown.length || 1) * 1000,
+                        commandData.name
+                    );
+                }
             }
-            // }
 
             /************************ Usage ***************************/
             if (commandData.usage && !msgMeta.args[commandData.usage.split(' ').length - 1]) {
-                // if (!commandData.whisperOnly) {
-                //     bot.Modules.cooldown(commandData.name, msgMeta, {
-                //         mode: 'remove',
-                //         type: commandData.cooldown?.type || ''
-                //     });
-                // }
-                return msgContext.replyUsage(commandData.usage);
+                // Remove cooldown since there's a usage error/no command execution
+                this._cooldownModule.remove(msgMeta, commandData.cooldown.type, commandData.name);
+
+                msgContext.replyUsage(commandData.usage);
+                return;
             }
 
             /********************** Execution *************************/

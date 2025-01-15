@@ -1,6 +1,6 @@
 import { injectable, inject } from 'inversify';
 
-import { whatsapp as WhatsAppConfig } from '../constants';
+import { permissionHierarchy, whatsapp as WhatsAppConfig } from '../constants';
 import { EUserPermissions } from '../types/permission';
 import type { IPermissionModule } from '../types/classes';
 import type { IMsgContext, IMsgMeta } from '../types/message';
@@ -19,9 +19,10 @@ export class PermissionModule implements IPermissionModule {
     public async getUserPermissions(
         msgMeta: IMsgMeta,
         msgContext: IMsgContext
-    ): Promise<EUserPermissions> {
-        let permissionLevel = EUserPermissions.User;
+    ): Promise<Set<EUserPermissions>> {
+        const permissions = new Set<EUserPermissions>();
 
+        // Determine group-related permissions
         if (msgMeta.isGroup) {
             const membersData = await msgContext.client.groupMetadata(msgMeta.group.jid);
             const userData = membersData.participants.find((p) => p.id === msgMeta.user.jid);
@@ -30,52 +31,48 @@ export class PermissionModule implements IPermissionModule {
                 this._logger.warn(
                     `Couldn't load user info: "${msgMeta.user.jid}" in group "${msgMeta.group.jid}"`
                 );
+                return permissions;
             }
 
-            // Check if user is group owner or admin
-            if (userData.admin) {
-                permissionLevel |=
-                    userData.admin === 'superadmin'
-                        ? EUserPermissions.GroupOwner
-                        : EUserPermissions.GroupAdmin;
+            // Check if user is a type of admin
+            if (userData.admin === 'superadmin') {
+                permissions.add(EUserPermissions.GroupOwner);
+            } else if (userData.admin === 'admin') {
+                permissions.add(EUserPermissions.GroupAdmin);
             }
 
             // Check if user is bot owner
             if (msgMeta.user.number === WhatsAppConfig.OWNER_NUMBER) {
-                permissionLevel |= EUserPermissions.BotOwner;
+                permissions.add(EUserPermissions.BotOwner);
             }
         }
 
-        return permissionLevel;
+        // Assign default permission, if not already assigned at least one
+        if (permissions.size === 0) {
+            permissions.add(EUserPermissions.User);
+        }
+
+        // TODO: If a user is banned in the yet-to-be database, assign a 'Banned' permission (here and define in hierarchy)
+
+        return permissions;
     }
 
-    public hasPermissionLevel = (
-        bitFlag: EUserPermissions,
-        permission: EUserPermissions
+    public hasPermission = (
+        userPermissions: Set<EUserPermissions>,
+        requiredPermission: EUserPermissions
     ): boolean => {
-        return (bitFlag & permission) === permission;
-    };
-
-    public isPermitted = (
-        bitFlag: EUserPermissions,
-        minimumPermission: EUserPermissions = EUserPermissions.User,
-        staticPermission?: EUserPermissions
-    ): boolean => {
-        if (typeof staticPermission !== 'undefined') {
-            return this.hasPermissionLevel(bitFlag, staticPermission);
-        } else {
-            return bitFlag >= minimumPermission;
-        }
-    };
-
-    public getHighestPermission = (bitFlag: EUserPermissions): EUserPermissions => {
-        let last = bitFlag;
-
-        while (bitFlag !== 0) {
-            last = bitFlag;
-            bitFlag &= bitFlag - 1;
+        // Loop thru all user permissions
+        for (const perm of userPermissions) {
+            // Check if permission either directly equals the required one,
+            // or if the current iterated user permission has the required permission as its child
+            if (
+                perm === requiredPermission ||
+                permissionHierarchy[perm].includes(requiredPermission)
+            ) {
+                return true;
+            }
         }
 
-        return last;
+        return false;
     };
 }

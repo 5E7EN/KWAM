@@ -3,38 +3,21 @@ import type { EUserPermissions } from '../../permission';
 
 export interface IPermissionModule {
     /**
-     * Calculates a user's permission level.
+     * Determines the permissions a user has based on the message context.
      * @param msgMeta - Metadata of the received message.
-     * @param msgContext - Context of the received message.
-     * @returns A promise resolving to a bit flag built from `EUserPermissions` enum values.
+     * @param msgContext - Context for the message, including the client instance.
+     * @returns A promise that resolves to a set of user permissions.
      */
-    getUserPermissions(msgMeta: IMsgMeta, msgContext: IMsgContext): Promise<EUserPermissions>;
+    getUserPermissions(msgMeta: IMsgMeta, msgContext: IMsgContext): Promise<Set<EUserPermissions>>;
 
     /**
-     * Checks whether a bit-flag permission has a specific permission level.
-     * @param bitFlag - The bit flag permission status stack for a specific user.
-     * @param permission - The permission to check exists in `bitFlag`.
-     * @returns A boolean indicating whether `permission` is present inside `bitFlag`.
+     * Checks if a user has a specific permission or has a permission level that includes the required permission.
+     * @param userPermissions - A set of permissions assigned to the user.
+     * @param requiredPermission - The permission to check for.
+     * @returns `true` if the user has the required permission; otherwise, `false`.
      */
-    hasPermissionLevel(bitFlag: EUserPermissions, permission: EUserPermissions): boolean;
-
-    /**
-     * Calculates whether a user is permitted for a specific action.
-     * @param bitFlag - The bit-flag permission stack for a user.
-     * @param minimumPermission - The minimum permission level required.
-     * @param staticPermission - The permission level absolutely required for the action.
-     * @returns A boolean indicating whether the user is permitted for the action.
-     */
-    isPermitted(
-        bitFlag: EUserPermissions,
-        minimumPermission?: EUserPermissions,
-        staticPermission?: EUserPermissions
+    hasPermission(
+        userPermissions: Set<EUserPermissions>,
+        requiredPermission: EUserPermissions
     ): boolean;
-
-    /**
-     * Calculates the highest permission level for a user.
-     * @param bitFlag - The bit-flag permission stack for a user.
-     * @returns The highest `EUserPermissions` value from the `bitFlag`.
-     */
-    getHighestPermission(bitFlag: EUserPermissions): EUserPermissions;
 }
