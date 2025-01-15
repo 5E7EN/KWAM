@@ -35,7 +35,8 @@ export const permissionHierarchy: Record<EUserPermissions, EUserPermissions[]> =
     ],
     [EUserPermissions.GroupOwner]: [EUserPermissions.GroupAdmin, EUserPermissions.User],
     [EUserPermissions.GroupAdmin]: [EUserPermissions.User],
-    [EUserPermissions.User]: [] // Base level, contains no child permissions
+    [EUserPermissions.User]: [], // Base level, contains no child permissions
+    [EUserPermissions.Self]: [] // Self bot
 };
 
 export const misc = {

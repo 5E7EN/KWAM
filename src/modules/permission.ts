@@ -41,16 +41,21 @@ export class PermissionModule implements IPermissionModule {
             } else if (userData.admin === 'admin') {
                 permissions.add(EUserPermissions.GroupAdmin);
             }
+        }
 
-            // Check if user is bot owner
-            if (msgMeta.user.number === WhatsAppConfig.OWNER_NUMBER) {
-                permissions.add(EUserPermissions.BotOwner);
-            }
+        // Check if user is bot owner
+        if (msgMeta.user.number === WhatsAppConfig.OWNER_NUMBER) {
+            permissions.add(EUserPermissions.BotOwner);
         }
 
         // Assign default permission, if not already assigned at least one
         if (permissions.size === 0) {
             permissions.add(EUserPermissions.User);
+        }
+
+        // Check if user is self (for potential self-bot usage if I decide this project isn't going anywhere)
+        if (msgMeta.user.number === WhatsAppConfig.OPERATING_NUMBER) {
+            permissions.add(EUserPermissions.Self);
         }
 
         // TODO: If a user is banned in the yet-to-be database, assign a 'Banned' permission (here and define in hierarchy)

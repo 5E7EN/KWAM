@@ -12,5 +12,6 @@ export enum EUserPermissions {
     BotOwner = 'BotOwner',
     GroupOwner = 'GroupOwner',
     GroupAdmin = 'GroupAdmin',
-    User = 'User'
+    User = 'User',
+    Self = 'Self'
 }
