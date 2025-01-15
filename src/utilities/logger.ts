@@ -73,21 +73,56 @@ export class WinstonLogger {
                                       this._contextTag;
                         }
 
-                        const message: string[] = [
+                        // Pad context tag
+                        const paddedContextText = `[${contextTag}]`.padEnd(20);
+
+                        const messageMeta: string[] = [
                             // Add the current date and time
                             chalk.gray(new Date().toLocaleString()),
                             // Add the log level in uppercase and pad with spaces
                             chalk[color](info.level.toUpperCase().padEnd(7)),
                             // Add the context tag (if present) and pad with spaces
-                            contextTag ? chalk.yellow(`[${contextTag}]`.padEnd(20)) + ' -' : '',
+                            contextTag ? chalk.yellow(paddedContextText) + ' -' : ''
+                        ];
+
+                        // Get message text, not including the context tag extender
+                        const messageText = info.message.replace(/^\[.*?]( )/, '');
+
+                        const messageContent: string[] = [
                             // Remove the context tag and add log message
-                            isMessageString ? info.message.replace(/^\[.*?]( )/, '') : '',
+                            isMessageString
+                                ? // If the message contains newlines, pad each line with spaces to align with the context tag
+                                  // Otherwise, just return the message as-is
+                                  /\n.+?/.test(info.message)
+                                    ? messageText
+                                          .split(/\n/g)
+                                          .map((line, idx) => {
+                                              // Don't modify the first line since it's already padded
+                                              if (idx === 0) return line;
+
+                                              // Remove user-defined spaces at the beginning of the line
+                                              line = line.trim();
+
+                                              // Re-add spaces to the beginning of the line enough to align with the context tag
+                                              // Ignore ANSI escape sequences (applied by chalk) when calculating the length
+                                              return (
+                                                  ' '.repeat(
+                                                      messageMeta
+                                                          .join(' ')
+                                                          .replace(/\u001b\[[0-9;]*m/g, '').length +
+                                                          1
+                                                  ) + line
+                                              );
+                                          })
+                                          .join('\n')
+                                    : messageText
+                                : '',
                             // Stringify message object (if present)
                             !isMessageString ? JSON.stringify(info.message, null, 2) : ''
                         ];
 
-                        // Return the formatted log message
-                        return message.join(' ').trim();
+                        // Return the formatted log message meta and content
+                        return messageMeta.join(' ') + ' ' + messageContent.join(' ');
                     })
                 })
             ]
