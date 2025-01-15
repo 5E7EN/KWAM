@@ -30,8 +30,12 @@ export class WinstonLogger {
     constructor(contextTag?: string, logLevel?: ELogLevel) {
         let envLevel: ELogLevel;
 
-        if (AppConfig.LOG_LEVEL && AppConfig.LOG_LEVEL in ELogLevel) {
-            envLevel = ELogLevel[AppConfig.LOG_LEVEL] as ELogLevel;
+        // Check if the env log level is set and is a valid value, then use it
+        if (
+            AppConfig.LOG_LEVEL &&
+            Object.values(ELogLevel).includes(AppConfig.LOG_LEVEL as ELogLevel)
+        ) {
+            envLevel = AppConfig.LOG_LEVEL as ELogLevel;
         }
 
         // Log level priority:

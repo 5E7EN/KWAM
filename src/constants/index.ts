@@ -7,7 +7,8 @@ dotenv.config();
 
 export const app = {
     ENVIRONMENT: process.env.NODE_ENV,
-    LOG_LEVEL: process.env.NODE_ENV
+    BAILEYS_LOG_LEVEL: process.env.BAILEYS_LOG_LEVEL,
+    LOG_LEVEL: process.env.LOG_LEVEL
 };
 
 export const whatsapp = {

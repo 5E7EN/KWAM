@@ -12,7 +12,7 @@ import createWASocket, {
 import { Boom } from '@hapi/boom';
 import P from 'pino';
 
-import { whatsapp as WhatsAppConfig } from '../constants';
+import { whatsapp as WhatsAppConfig, app as AppConfig } from '../constants';
 import { IMsgContext, IMsgMeta, TMsgType } from '../types/message';
 
 import type { IWhatsappClient } from '../types/classes/clients/whatsapp';
@@ -54,7 +54,7 @@ export class WhatsappClient implements IWhatsappClient {
         this.chatClient = createWASocket({
             printQRInTerminal: true,
             auth: state,
-            logger: P({ name: 'WhatsappClient', level: 'error' })
+            logger: P({ name: 'WhatsappClient', level: AppConfig.BAILEYS_LOG_LEVEL || 'error' })
         });
 
         // Events
