@@ -38,14 +38,7 @@ export class MessageController implements IMessageController {
         if (msgMeta.isGroup && msgMeta.group.isLocked) return;
 
         // Add message to group cache
-        // TODO: Refactor this implementation to have it accessible inside an object passed to command `run`s (via msgMeta?)
-        // const contextId = isGroup ? msgMeta.group.jid : msgMeta.user.jid;
-        // const groupCache = bot.Store.messageCache.get(contextId);
-        // if (groupCache) {
-        //     groupCache.push(msgMeta);
-        // } else {
-        //     bot.Store.messageCache.set(contextId, [msgMeta]);
-        // }
+        //* Not necessary in the end, WhatsApp in itself is our cache :)
 
         // Mark message as read
         client.readMessages([message.rawKey]);
