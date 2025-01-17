@@ -37,9 +37,6 @@ export class MessageController implements IMessageController {
         // TODO: Does this belong here? Technically we should still handle the incoming message (not sure for what purpose yet though...)
         if (msgMeta.isGroup && msgMeta.group.isLocked) return;
 
-        // Add message to group cache
-        //* Not necessary in the end, WhatsApp in itself is our cache :)
-
         // Mark message as read
         client.readMessages([message.rawKey]);
 

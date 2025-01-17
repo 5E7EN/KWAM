@@ -17,11 +17,6 @@ export const whatsapp = {
     PREFIX: process.env.Twitch_Prefix || '!'
 };
 
-export const chatCache = {
-    maxMessagesInCache: 5000,
-    nukeDepth: 200
-};
-
 // Permissions hierarchy
 //* This list defines the child permissions for each permission level.
 //* E.g. BotOwner includes all permissions, GroupOwner includes GroupAdmin and User, etc.
@@ -38,10 +33,6 @@ export const permissionHierarchy: Record<EUserPermissions, EUserPermissions[]> =
     [EUserPermissions.GroupAdmin]: [EUserPermissions.User],
     [EUserPermissions.User]: [], // Base level, contains no child permissions
     [EUserPermissions.Self]: [] // Self bot
-};
-
-export const misc = {
-    BOT_OWNER: { name: '5E7EN', number: process.env.OWNER_NUMBER }
 };
 
 export const TYPES = {
