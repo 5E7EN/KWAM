@@ -6,7 +6,7 @@ Each subdirectory is a category of commands and each file within it is a command
 ## Adding a new command
 
 To add a new command, create a new file in the appropriate category directory.  
-The file should export a default class that extends `BaseCommand` and implements the properties and methods of it (see JSDoc comments for a description each item the `IBaseCommand` interface).
+The file should export a default class that extends the `BaseCommand` class and implements the properties and methods of it (see JSDoc comments on the `IBaseCommand` interface for a description each item).
 
 ```ts
 import { BaseCommand, type IRunParams } from '../../types/classes/commands';
