@@ -36,7 +36,6 @@ export class CommandsModule implements ICommandsModule {
         await this.loadCommands();
     }
 
-    // TODO: Instead of these kind of hacky commands, use classes (since this is typescript and can't add files on the go anyway)
     public async loadCommands(purgeExisting?: boolean): Promise<void> {
         if (purgeExisting) {
             this._commands.clear();
