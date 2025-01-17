@@ -1,16 +1,16 @@
+import { BaseCommand, type IRunParams } from '../../types/classes/commands';
 import { EUserPermissions } from '../../types/permission';
-import type { ICommandParams } from '../../types/command';
+import { ECooldownType } from '../../types/cooldown';
 
-async function run({ msgMeta, msgContext }: ICommandParams): Promise<void> {
-    msgContext.sendGroupMessage('Pong!');
+export default class TestCommand extends BaseCommand {
+    name = 'ping';
+    description = 'Ping!';
+    category = 'Utility';
+    pmOnly = true;
+    accessLevel = EUserPermissions.GroupAdmin;
+    cooldown = { type: ECooldownType.UserCommand, length: 5 };
+
+    async run({ msgMeta, msgContext }: IRunParams): Promise<void> {
+        msgContext.sendGroupMessage('Hello world!');
+    }
 }
-
-export default {
-    name: 'ping',
-    aliases: [],
-    accessLevel: EUserPermissions.BotOwner,
-    cooldown: { type: 'UserCommand', length: 5 },
-    category: 'Utility',
-    description: 'Test',
-    run
-};

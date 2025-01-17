@@ -1,8 +1,9 @@
 import { injectable } from 'inversify';
 import type { IMsgMeta } from '../types/message';
 
+import { ECooldownType } from '../types/cooldown';
 import type { ICooldownModule } from '../types/classes';
-import type { TCooldownType, ICooldownCheckResult } from '../types/cooldown';
+import type { ICooldownCheckResult } from '../types/cooldown';
 
 //* We make this injectable since in the future it might be used for app health stats, even though right now it's only used in one place (and has no deps)
 @injectable()
@@ -17,20 +18,20 @@ export class CooldownModule implements ICooldownModule {
      * @returns A unique key for the cooldown.
      */
 
-    private generateKey(msgMeta: IMsgMeta, type: TCooldownType, commandName?: string): string {
+    private generateKey(msgMeta: IMsgMeta, type: ECooldownType, commandName?: string): string {
         // Ensure command name has been provided if required, which is the case most of the time
         //* (User does not require command name since it's a cooldown applied for ALL commands)
-        if (type !== 'User' && !commandName) {
+        if (type !== ECooldownType.User && !commandName) {
             throw new Error(`Command name is required for cooldown type: ${type}`);
         }
 
         const { group, user } = msgMeta;
         switch (type) {
-            case 'User':
+            case ECooldownType.User:
                 return `${group.jid}:user:${user.number}`;
-            case 'Group':
+            case ECooldownType.Group:
                 return `${group.jid}:group:${commandName}`;
-            case 'UserCommand':
+            case ECooldownType.UserCommand:
                 return `${group.jid}:user:${user.number}:command:${commandName}`;
             default:
                 throw new Error(`Unsupported cooldown type: ${type}`);
@@ -39,7 +40,7 @@ export class CooldownModule implements ICooldownModule {
 
     public add(
         msgMeta: IMsgMeta,
-        type: TCooldownType,
+        type: ECooldownType,
         durationMs: number,
         commandName?: string
     ): void {
@@ -54,11 +55,11 @@ export class CooldownModule implements ICooldownModule {
     public checkAny(
         commandName: string,
         msgMeta: IMsgMeta
-    ): { [type in TCooldownType]?: ICooldownCheckResult } {
-        const result: { [type in TCooldownType]?: ICooldownCheckResult } = {};
+    ): { [type in ECooldownType]?: ICooldownCheckResult } {
+        const result: { [type in ECooldownType]?: ICooldownCheckResult } = {};
 
         // Check for any active cooldowns of any type
-        for (const type of ['User', 'Group', 'UserCommand'] as TCooldownType[]) {
+        for (const type of Object.values(ECooldownType)) {
             const key = this.generateKey(msgMeta, type, commandName);
             const now = Date.now();
 
@@ -83,7 +84,7 @@ export class CooldownModule implements ICooldownModule {
         return result;
     }
 
-    public remove(msgMeta: IMsgMeta, type: TCooldownType, commandName?: string): void {
+    public remove(msgMeta: IMsgMeta, type: ECooldownType, commandName?: string): void {
         const key = this.generateKey(msgMeta, type, commandName);
 
         if (!this.cooldowns.has(key)) return;

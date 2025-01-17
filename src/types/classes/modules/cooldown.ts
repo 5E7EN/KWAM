@@ -1,5 +1,5 @@
 import type { IMsgMeta } from '../../message';
-import type { TCooldownType, ICooldownCheckResult } from '../../cooldown';
+import type { ECooldownType, ICooldownCheckResult } from '../../cooldown';
 
 export interface ICooldownModule {
     /**
@@ -10,7 +10,7 @@ export interface ICooldownModule {
      * @param durationMs - Duration of cooldown in milliseconds.
      * @param commandName - The command name, if applicable.
      */
-    add(msgMeta: IMsgMeta, type: TCooldownType, durationMs: number, commandName?: string): void;
+    add(msgMeta: IMsgMeta, type: ECooldownType, durationMs: number, commandName?: string): void;
 
     /**
      * Checks if a cooldown of any type (User, Group, etc.) is currently active.
@@ -22,7 +22,7 @@ export interface ICooldownModule {
     checkAny(
         commandName: string,
         msgMeta: IMsgMeta
-    ): { [type in TCooldownType]?: ICooldownCheckResult };
+    ): { [type in ECooldownType]?: ICooldownCheckResult };
 
     /**
      * Removes a specific cooldown.
@@ -31,5 +31,5 @@ export interface ICooldownModule {
      * @param type - Type of cooldown.
      * @param commandName - The command name, if applicable.
      */
-    remove(msgMeta: IMsgMeta, type: TCooldownType, commandName?: string): void;
+    remove(msgMeta: IMsgMeta, type: ECooldownType, commandName?: string): void;
 }

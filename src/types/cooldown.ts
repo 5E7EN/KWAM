@@ -1,7 +1,11 @@
-export type TCooldownType = 'User' | 'Group' | 'UserCommand';
+export enum ECooldownType {
+    User = 'User',
+    Group = 'Group',
+    UserCommand = 'UserCommand'
+}
 
 export interface ICooldownCheckResult {
     isOnCooldown: boolean;
-    type?: TCooldownType;
+    type?: ECooldownType;
     remainingTimeMs?: number;
 }

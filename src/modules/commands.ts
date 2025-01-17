@@ -3,14 +3,13 @@ import { readdir } from 'fs/promises';
 import { performance } from 'perf_hooks';
 import path from 'path';
 
-import { whatsapp as WhatsAppConfig } from '../constants';
 import { EUserPermissions } from '../types/permission';
+import { BaseCommand } from '../types/classes/commands';
 import type { ICommandsModule } from '../types/classes';
 import type { PermissionModule } from './permission';
 import type { CooldownModule } from './cooldown';
 import type { BaseLogger } from '../utilities/logger';
 import type { IMsgContext, IMsgMeta } from '../types/message';
-import type { ICommandData } from '../types/command';
 
 import { TYPES } from '../constants';
 
@@ -19,7 +18,7 @@ export class CommandsModule implements ICommandsModule {
     private _logger: BaseLogger;
     private _cooldownModule: CooldownModule;
     private _permissionModule: PermissionModule;
-    private readonly _commands = new Map<string, ICommandData>();
+    private readonly _commands = new Map<string, BaseCommand>();
     private readonly _aliases = new Map<string, string>();
 
     public constructor(
@@ -52,21 +51,30 @@ export class CommandsModule implements ICommandsModule {
         const dirs = await readdir(commandDir);
 
         for (const dir of dirs) {
-            const commands = (await readdir(path.join(commandDir, dir))).filter((file) =>
+            // Skip if not a directory
+            if (dir.includes('.')) continue;
+
+            const files = (await readdir(path.join(commandDir, dir))).filter((file) =>
                 isDev ? file.endsWith('.ts') : file.endsWith('.js')
             );
 
-            for (const file of commands) {
+            for (const file of files) {
+                const filePath = path.resolve(commandDir, dir, file);
+
                 try {
-                    const commandPath = path.resolve(commandDir, dir, file);
+                    // Import the command dynamically
+                    const CommandClass = (await import(filePath)).default;
 
-                    // Remove cached module for reloading during development
-                    delete require.cache[require.resolve(commandPath)];
+                    if (!(CommandClass?.prototype instanceof BaseCommand)) {
+                        throw new Error(`File does not export a valid BaseCommand class.`);
+                    }
 
-                    // Import the command
-                    const pull: ICommandData = require(commandPath).default;
+                    const commandInstance = new CommandClass() as BaseCommand;
+                    // Run validation to ensure command is properly implemented
+                    commandInstance.validate();
 
-                    this.addCommand(pull);
+                    // Add command to registry
+                    this.addCommand(commandInstance);
                 } catch (error) {
                     this._logger.error(`Failed to load command ${file}: ${error + error?.stack}`);
                 }
@@ -99,6 +107,7 @@ export class CommandsModule implements ICommandsModule {
                 commandData.accessLevel === undefined ||
                 (commandData.accessLevel && !(commandData.accessLevel in EUserPermissions))
             ) {
+                // TODO: This check probably isn't necessary, since the command validation should catch this
                 this._logger.warn(
                     `[Executor] Unable to determine access level of command: ${commandData.name}.`
                 );
@@ -107,9 +116,9 @@ export class CommandsModule implements ICommandsModule {
             if (!this._permissionModule.hasPermission(userPermissions, commandData.accessLevel)) {
                 this._logger.debug(
                     `[Executor] Access denied; insufficient permissions - 
-                    User: ${msgMeta.user.number} | 
-                    Group: ${msgMeta.group.name} | 
-                    Command: ${commandData.name} | 
+                    User: ${msgMeta.user.number}
+                    Group: ${msgMeta.group.name}
+                    Command: ${commandData.name}
                     Needs: "${commandData.accessLevel}" - Has: "${Array.from(userPermissions).join(
                         ', '
                     )}"`
@@ -126,12 +135,12 @@ export class CommandsModule implements ICommandsModule {
                 if (activeCooldown) {
                     const { type, remainingTimeMs } = activeCooldown!;
                     this._logger.debug(
-                        `[Executor] Cooldown enforced - 
-                        Type: ${type} | 
-                        Remaining: ${remainingTimeMs}ms | 
-                        User: ${msgMeta.user.number} | 
-                        Group: ${msgMeta.group.name} | 
-                        Command: ${commandData.name}`
+                        `[Executor] Cooldown enforced -
+                        Command: ${commandData.name} 
+                        Type: ${type}
+                        Time Remaining: ${remainingTimeMs}ms
+                        User: ${msgMeta.user.number}
+                        Group: ${msgMeta.group.name}`
                     );
                     return;
                 }
@@ -172,12 +181,15 @@ export class CommandsModule implements ICommandsModule {
      * Adds a command to the command registry.
      * @param command The command data object to add.
      */
-    private addCommand(command: ICommandData): void {
-        if (command.name) {
-            this._commands.set(command.name, command);
+    private addCommand(commandInstance: BaseCommand): void {
+        if (commandInstance.name) {
+            this._commands.set(commandInstance.name, commandInstance);
         }
-        if (command.aliases) {
-            command.aliases.forEach((alias) => this._aliases.set(alias, command.name));
+
+        if (commandInstance.aliases) {
+            commandInstance.aliases.forEach((alias) =>
+                this._aliases.set(alias, commandInstance.name)
+            );
         }
     }
 
@@ -186,7 +198,7 @@ export class CommandsModule implements ICommandsModule {
      * @param name The name or alias of the command to retrieve.
      * @returns The command data object, or null if not found.
      */
-    private getCommand(name: string): ICommandData | null {
+    private getCommand(name: string): BaseCommand | null {
         return this._commands.get(name) ?? this._commands.get(this._aliases.get(name)) ?? null;
     }
 
