@@ -1,3 +1,12 @@
+## ⚠️ Disclaimer  
+
+WhatsApp has started aggressively enforcing anti-bot measures.  
+As such, usage of this program has a high risk of being banned. As I can attest.  
+You have been warned!
+
+
+---
+
 # KWAM - Kosher WhatsApp Moderator
 
 An advanced moderation bot for WhatsApp.  
